@@ -283,6 +283,10 @@
     let editingPropertyId = null;
     let editingContactId  = null;
 
+    // Dirty flag for auto-sync
+    let dirty = false;
+    function markDirty(){ dirty = true; setStatus && setStatus('Changes pending…'); }
+
     // State (tabs, filters)
     let currentTab = localStorage.getItem('crm_tab') || 'dashboard';
     let searchTerm = '';
@@ -339,8 +343,6 @@
     function setTab(tab) {
       currentTab = tab;
       localStorage.setItem('crm_tab', tab);
-      for (const k in tabs) tabs[k].classList.toggle('hidden', k !== tab && !(tab === 'dashboard' && (k==='propsOnly'||k==='contactsOnly')));
-      // In dashboard we hide the “only” sections but show the main dashboardSection which already contains both lists.
       tabs.dashboard.classList.toggle('hidden', tab !== 'dashboard');
       tabs.propsOnly.classList.toggle('hidden', tab !== 'propsOnly');
       tabs.contactsOnly.classList.toggle('hidden', tab !== 'contactsOnly');
@@ -404,6 +406,7 @@
       if(editingPropertyId){ properties=properties.map(p=>p.id===editingPropertyId?{...p,...payload}:p); showNotification('Property saved'); }
       else { properties.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Property added'); }
       localStorage.setItem('properties', JSON.stringify(properties));
+      markDirty();
       renderAll(); hidePropertyForm(); e.target.reset(); editingPropertyId=null;
     }
     function submitContact(e){
@@ -412,12 +415,13 @@
       if(editingContactId){ contacts=contacts.map(c=>c.id===editingContactId?{...c,...payload}:c); showNotification('Contact saved'); }
       else { contacts.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Contact added'); }
       localStorage.setItem('contacts', JSON.stringify(contacts));
+      markDirty();
       renderAll(); hideContactForm(); e.target.reset(); editingContactId=null;
     }
 
     // Delete
-    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); renderAll(); showNotification('Property deleted'); }
-    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); renderAll(); showNotification('Contact deleted'); }
+    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Property deleted'); }
+    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Contact deleted'); }
 
     // Filtering + sorting helpers
     function filterProps(list){
@@ -456,7 +460,7 @@
       const body = encode(`Address: ${p.address}\nType: ${p.type}\nBeds/Baths/Cars: ${p.bedrooms}/${p.bathrooms}/${p.carSpaces}\nPrice: ${p.price}\nNotes:\n${p.notes||''}`);
       return `mailto:?subject=${subject}&body=${body}`;
     }
-    function waLink(phone, text){ const num = stripPhone(phone); return num? `https://wa.me/${num}?text=${encode(text||'')}` : '#'; }
+    function waLink(phone, text){ const num = (phone||'').replace(/[^\d]/g,''); return num? `https://wa.me/${num}?text=${encode(text||'')}` : '#'; }
 
     // Renderers
     function renderPropertiesTo(containerId, list){
@@ -563,7 +567,7 @@
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
           const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'', carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
           const map=new Map(properties.map(p=>[p.id,p])); imported.forEach(p=>map.set(p.id,{...(map.get(p.id)||{}),...p})); properties=[...map.values()];
-          localStorage.setItem('properties', JSON.stringify(properties)); renderAll(); showNotification('Properties imported');
+          localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Properties imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
         finally{ document.getElementById('importPropsInput').value=''; }
       }; r.readAsText(file);
@@ -577,7 +581,7 @@
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
           const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
           const map=new Map(contacts.map(c=>[c.id,c])); imported.forEach(c=>map.set(c.id,{...(map.get(c.id)||{}),...c})); contacts=[...map.values()];
-          localStorage.setItem('contacts', JSON.stringify(contacts)); renderAll(); showNotification('Contacts imported');
+          localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Contacts imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
         finally{ document.getElementById('importContactsInput').value=''; }
       }; r.readAsText(file);
@@ -590,7 +594,7 @@
   <!-- ===== Google API loader ===== -->
   <script src="https://apis.google.com/js/api.js"></script>
 
-  <!-- ===== Google Sheets Sync (OAuth + read/write) ===== -->
+  <!-- ===== Google Sheets Sync (OAuth + read/write + auto-sync) ===== -->
   <script>
     /* === CONFIG (yours) === */
     const GAPI_API_KEY   = 'AIzaSyCX7yThc3WManWS2EJcc0zkKa6o01T1dec';
@@ -631,7 +635,64 @@
       right.prepend(wrap);
     })();
 
-    // Google API init
+    // Sheets helpers
+    async function readSheet(rangeA1){
+      const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: rangeA1 });
+      return res.result.values || [];
+    }
+    async function writeSheet(rangeA1, values){
+      return gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: rangeA1, valueInputOption: 'RAW', resource: { values }
+      });
+    }
+    async function clearRange(rangeA1){
+      return gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: rangeA1 });
+    }
+
+    // Reusable pull/push
+    async function pullFromSheets() {
+      setStatus('Syncing ↓ from Sheets…');
+      const props = await readSheet('Properties!A2:I'); // id,address,type,bedrooms,bathrooms,carspaces,price,createdat,notes
+      const cons  = await readSheet('Contacts!A2:G');   // id,name,email,phone,type,createdat,notes
+      properties = (props || []).map(r => ({
+        id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
+        address: r[1] || '', type: r[2] || '',
+        bedrooms: r[3] || '', bathrooms: r[4] || '',
+        carSpaces: r[5] || '', price: r[6] || '',
+        createdAt: r[7] || '', notes: r[8] || ''
+      }));
+      contacts = (cons || []).map(r => ({
+        id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
+        name: r[1] || '', email: r[2] || '', phone: r[3] || '',
+        type: r[4] || '', createdAt: r[5] || '', notes: r[6] || ''
+      }));
+      localStorage.setItem('properties', JSON.stringify(properties));
+      localStorage.setItem('contacts', JSON.stringify(contacts));
+      renderAll();
+      dirty = false; // pulled is clean
+      setStatus('Synced just now');
+      showNotification('Pulled from Google Sheets');
+    }
+
+    async function pushToSheets() {
+      setStatus('Syncing ↑ to Sheets…');
+      const propValues = (properties || []).map(p => [
+        p.id, p.address || '', p.type || '', p.bedrooms || '',
+        p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || '', p.notes || ''
+      ]);
+      const conValues = (contacts || []).map(c => [
+        c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || '', c.notes || ''
+      ]);
+      await clearRange('Properties!A2:I');
+      await clearRange('Contacts!A2:G');
+      if (propValues.length) await writeSheet('Properties!A2', propValues);
+      if (conValues.length)  await writeSheet('Contacts!A2',  conValues);
+      dirty = false;
+      setStatus('Synced just now');
+      showNotification('Pushed to Google Sheets');
+    }
+
+    // Google API init + auto-sync
     function gapiInit() {
       gapi.load('client:auth2', async () => {
         await gapi.client.init({
@@ -652,84 +713,41 @@
           if (pushBtn) pushBtn.disabled = !signedIn;
         }
 
-        auth.isSignedIn.listen(setAuthUI);
+        auth.isSignedIn.listen(async (signedIn) => {
+          setAuthUI(signedIn);
+          if (signedIn) {
+            try { await pullFromSheets(); } catch(e){ console.error(e); setStatus('Sync error'); }
+          }
+        });
+
         setAuthUI(auth.isSignedIn.get());
+        if (auth.isSignedIn.get()) {
+          try { await pullFromSheets(); } catch(e){ console.error(e); setStatus('Sync error'); }
+        }
 
         if (signBtn) signBtn.onclick = () => auth.isSignedIn.get() ? auth.signOut() : auth.signIn();
+        if (pullBtn) pullBtn.onclick = async () => { try { await pullFromSheets(); } catch(e){ console.error(e); setStatus('Sync error'); showNotification('Pull failed (Sheets)','bg-red-600'); } };
+        if (pushBtn) pushBtn.onclick = async () => { try { await pushToSheets(); } catch(e){ console.error(e); setStatus('Sync error'); showNotification('Push failed (Sheets)','bg-red-600'); } };
 
-        if (pullBtn) {
-          pullBtn.onclick = async () => {
-            try {
-              setStatus('Syncing ↓ from Sheets…');
-              // NOTE: we extended columns to include notes
-              const props = await readSheet('Properties!A2:I'); // id,address,type,bedrooms,bathrooms,carspaces,price,createdat,notes
-              const cons  = await readSheet('Contacts!A2:G');   // id,name,email,phone,type,createdat,notes
-              properties = (props || []).map(r => ({
-                id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
-                address: r[1] || '', type: r[2] || '',
-                bedrooms: r[3] || '', bathrooms: r[4] || '',
-                carSpaces: r[5] || '', price: r[6] || '',
-                createdAt: r[7] || '', notes: r[8] || ''
-              }));
-              contacts = (cons || []).map(r => ({
-                id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
-                name: r[1] || '', email: r[2] || '', phone: r[3] || '',
-                type: r[4] || '', createdAt: r[5] || '', notes: r[6] || ''
-              }));
-              localStorage.setItem('properties', JSON.stringify(properties));
-              localStorage.setItem('contacts', JSON.stringify(contacts));
-              renderAll();
-              showNotification('Pulled from Google Sheets');
-              setStatus('Synced just now');
-            } catch (e) {
-              console.error(e);
-              showNotification('Pull failed (Sheets)', 'bg-red-600');
-              setStatus('Sync error');
+        // Auto-push every 2 minutes if there are pending changes
+        setInterval(async () => {
+          try {
+            if (auth.isSignedIn.get() && dirty) {
+              await pushToSheets();
             }
-          };
-        }
+          } catch (e) {
+            console.error(e);
+            setStatus('Sync error');
+          }
+        }, 120000);
 
-        if (pushBtn) {
-          pushBtn.onclick = async () => {
-            try {
-              setStatus('Syncing ↑ to Sheets…');
-              const propValues = (properties || []).map(p => [
-                p.id, p.address || '', p.type || '', p.bedrooms || '',
-                p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || '', p.notes || ''
-              ]);
-              const conValues = (contacts || []).map(c => [
-                c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || '', c.notes || ''
-              ]);
-              await clearRange('Properties!A2:I');
-              await clearRange('Contacts!A2:G');
-              if (propValues.length) await writeSheet('Properties!A2', propValues);
-              if (conValues.length)  await writeSheet('Contacts!A2',  conValues);
-              showNotification('Pushed to Google Sheets');
-              setStatus('Synced just now');
-            } catch (e) {
-              console.error(e);
-              showNotification('Push failed (Sheets)', 'bg-red-600');
-              setStatus('Sync error');
-            }
-          };
-        }
+        // Best-effort note on unload
+        window.addEventListener('beforeunload', () => {
+          if (auth.isSignedIn.get() && dirty) setStatus('Saving changes…');
+        });
       });
     }
     gapiInit();
-
-    // Sheets helpers
-    async function readSheet(rangeA1){
-      const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: rangeA1 });
-      return res.result.values || [];
-    }
-    async function writeSheet(rangeA1, values){
-      return gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID, range: rangeA1, valueInputOption: 'RAW', resource: { values }
-      });
-    }
-    async function clearRange(rangeA1){
-      return gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: rangeA1 });
-    }
   </script>
 </body>
 </html>
