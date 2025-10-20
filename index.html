@@ -24,6 +24,17 @@
     .card { @apply bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm; }
     .muted { @apply text-xs text-gray-600 dark:text-gray-400; }
     .tab-active { @apply text-primary; }
+    .badge { @apply text-[11px] px-2 py-0.5 rounded; }
+    .badge-green { @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100; }
+    .badge-orange { @apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100; }
+    .badge-gray { @apply bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-100; }
+    .badge-blue { @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100; }
+    .badge-purple { @apply bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100; }
+    .badge-red { @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; }
+    .cal-cell { @apply border rounded p-2 min-h-[80px] bg-white dark:bg-gray-800; }
+    .cal-today { @apply ring-2 ring-primary; }
+    .cal-event { @apply text-[11px] mt-1 px-1 py-0.5 rounded bg-primary/10 text-primary; }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -78,9 +89,8 @@
 
   <!-- Main -->
   <main class="p-4 pb-28">
-    <!-- DASHBOARD (both sections visible) -->
+    <!-- DASHBOARD -->
     <section id="dashboardSection">
-      <!-- Counters -->
       <div class="grid grid-cols-2 gap-3 mb-6">
         <div class="card text-center">
           <i class="fa-solid fa-building text-primary text-2xl mb-2"></i>
@@ -105,6 +115,9 @@
             <button class="btn btn-ghost" onclick="document.getElementById('importPropsInput').click()" title="Import properties CSV">
               <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
             </button>
+            <button class="btn btn-ghost" onclick="toggleTrashView('properties')">
+              <i class="fa-solid fa-trash mr-2"></i>Trash
+            </button>
             <input id="importPropsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportProps(this.files[0])">
           </div>
         </div>
@@ -123,6 +136,9 @@
             </button>
             <button class="btn btn-ghost" onclick="document.getElementById('importContactsInput').click()" title="Import contacts CSV">
               <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
+            </button>
+            <button class="btn btn-ghost" onclick="toggleTrashView('contacts')">
+              <i class="fa-solid fa-trash mr-2"></i>Trash
             </button>
             <input id="importContactsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportContacts(this.files[0])">
           </div>
@@ -145,11 +161,38 @@
       <div id="contactsListOnly" class="space-y-3"></div>
     </section>
 
-    <!-- CALENDAR (placeholder) -->
+    <!-- CALENDAR -->
     <section id="calendarSection" class="hidden">
-      <h2 class="text-lg font-bold mb-3">Calendar</h2>
-      <div class="card">
-        <p class="text-sm text-gray-600 dark:text-gray-300">Calendar integration coming soon (export .ics, reminders, next actions).</p>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold">Calendar</h2>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-ghost" onclick="prevMonth()"><i class="fa-solid fa-chevron-left"></i></button>
+          <div class="text-sm" id="calTitle">Month YYYY</div>
+          <button class="btn btn-ghost" onclick="nextMonth()"><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="btn btn-ghost" onclick="goToday()">Today</button>
+          <button class="btn btn-primary" onclick="openEventModal()">+ Event</button>
+        </div>
+      </div>
+      <div class="card mb-2">
+        <div class="grid grid-cols-7 gap-2 text-center text-xs text-gray-600 dark:text-gray-400">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+    </section>
+
+    <!-- TRASH -->
+    <section id="trashSection" class="hidden">
+      <h2 class="text-lg font-bold mb-3">Trash</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <h3 class="font-semibold mb-2">Properties in Trash</h3>
+          <div id="trashProps" class="space-y-3"></div>
+        </div>
+        <div>
+          <h3 class="font-semibold mb-2">Contacts in Trash</h3>
+          <div id="trashContacts" class="space-y-3"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -172,6 +215,10 @@
       <button id="navCalendar" class="flex flex-col items-center p-2">
         <i class="fa-solid fa-calendar text-xl mb-1"></i>
         <span class="text-xs">Calendar</span>
+      </button>
+      <button id="navTrash" class="flex flex-col items-center p-2">
+        <i class="fa-solid fa-trash text-xl mb-1"></i>
+        <span class="text-xs">Trash</span>
       </button>
     </div>
   </nav>
@@ -226,6 +273,13 @@
         </div>
         <input type="text" id="propPrice" inputmode="decimal" placeholder="Price e.g. 750000" required
                class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+        <select id="propStatus" required class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+          <option value="">Status</option>
+          <option value="Listed">Listed</option>
+          <option value="Under Offer">Under Offer</option>
+          <option value="Sold">Sold</option>
+          <option value="Off-market">Off-market</option>
+        </select>
         <textarea id="propNotes" placeholder="Notes (open home, vendor situation, agent comments…)" rows="3"
                   class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600"></textarea>
         <button type="submit" class="w-full btn btn-primary">Save</button>
@@ -257,6 +311,15 @@
           <option value="tenant">Tenant</option>
           <option value="investor">Investor</option>
         </select>
+        <select id="contactStage" required class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+          <option value="">Stage</option>
+          <option value="New">New</option>
+          <option value="Qualified">Qualified</option>
+          <option value="Inspection">Inspection</option>
+          <option value="Offer">Offer</option>
+          <option value="Won">Won</option>
+          <option value="Lost">Lost</option>
+        </select>
         <textarea id="contactNotes" placeholder="Notes (budget, preferences, follow-ups…)" rows="3"
                   class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600"></textarea>
         <button type="submit" class="w-full btn btn-blue">Save</button>
@@ -264,7 +327,24 @@
     </div>
   </div>
 
-  <!-- ===== Core App Script (localStorage + CSV + UI + Tabs + Search/Sort + Quick Actions) ===== -->
+  <!-- Event modal -->
+  <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="card w-full max-w-md mx-4">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-lg font-bold">Add Calendar Event</h3>
+        <button onclick="closeEventModal()" class="text-gray-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <form onsubmit="saveEvent(event)" class="space-y-3">
+        <input type="date" id="evDate" required class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+        <input type="time" id="evTime" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+        <input type="text" id="evTitle" placeholder="Title" required class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600">
+        <textarea id="evNotes" placeholder="Notes" rows="3" class="w-full px-3 py-2 border rounded dark:bg-gray-700 dark:border-gray-600"></textarea>
+        <button type="submit" class="w-full btn btn-primary">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== Core App Script (localStorage + CSV + UI + Tabs + Search/Sort + Quick Actions + Trash + Calendar) ===== -->
   <script>
     // Dark mode
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -280,6 +360,7 @@
     // Data
     let properties = JSON.parse(localStorage.getItem('properties') || '[]');
     let contacts   = JSON.parse(localStorage.getItem('contacts')   || '[]');
+    let events     = JSON.parse(localStorage.getItem('events')     || '[]');
     let editingPropertyId = null;
     let editingContactId  = null;
 
@@ -292,6 +373,7 @@
     let searchTerm = '';
     let propSort = localStorage.getItem('crm_prop_sort') || 'newest';
     let contactSort = localStorage.getItem('crm_contact_sort') || 'newest';
+    let viewingTrashOf = null; // 'properties' or 'contacts' for dashboard quick toggle
 
     // Utils
     const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -305,10 +387,7 @@
     // Search inputs
     const searchInput = document.getElementById('globalSearch');
     const searchMobile = document.getElementById('globalSearchMobile');
-    [searchInput, searchMobile].forEach(el => el && el.addEventListener('input', e => {
-      searchTerm = e.target.value.toLowerCase();
-      renderAll();
-    }));
+    [searchInput, searchMobile].forEach(el => el && el.addEventListener('input', e => { searchTerm = e.target.value.toLowerCase(); renderAll(); }));
 
     // Sort controls
     function hookSort(id, key, storeKey) {
@@ -332,28 +411,29 @@
       dashboard: document.getElementById('dashboardSection'),
       propsOnly: document.getElementById('onlyProperties'),
       contactsOnly: document.getElementById('onlyContacts'),
-      calendar: document.getElementById('calendarSection')
+      calendar: document.getElementById('calendarSection'),
+      trash: document.getElementById('trashSection')
     };
     const navs = {
       dashboard: document.getElementById('navDashboard'),
       propsOnly: document.getElementById('navProperties'),
       contactsOnly: document.getElementById('navContacts'),
-      calendar: document.getElementById('navCalendar')
+      calendar: document.getElementById('navCalendar'),
+      trash: document.getElementById('navTrash')
     };
     function setTab(tab) {
       currentTab = tab;
       localStorage.setItem('crm_tab', tab);
-      tabs.dashboard.classList.toggle('hidden', tab !== 'dashboard');
-      tabs.propsOnly.classList.toggle('hidden', tab !== 'propsOnly');
-      tabs.contactsOnly.classList.toggle('hidden', tab !== 'contactsOnly');
-      tabs.calendar.classList.toggle('hidden', tab !== 'calendar');
+      for (const k in tabs) tabs[k].classList.toggle('hidden', k !== tab);
       for (const k in navs) navs[k].classList.toggle('tab-active', k === tab);
       renderAll();
+      if (tab === 'calendar') renderCalendar();
     }
     navs.dashboard.addEventListener('click', ()=> setTab('dashboard'));
     navs.propsOnly.addEventListener('click', ()=> setTab('propsOnly'));
     navs.contactsOnly.addEventListener('click', ()=> setTab('contactsOnly'));
     navs.calendar.addEventListener('click', ()=> setTab('calendar'));
+    navs.trash.addEventListener('click', ()=> setTab('trash'));
     setTab(currentTab); // init
 
     // CSV helpers
@@ -380,9 +460,9 @@
       const modal=document.getElementById('propertyModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
       const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
       if(id){ const p=properties.find(x=>x.id===id);
-        propAddress.value=p.address; propType.value=p.type; propBeds.value=p.bedrooms; propBaths.value=p.bathrooms; propCars.value=p.carSpaces; propPrice.value=p.price; propNotes.value=p.notes||'';
+        propAddress.value=p.address; propType.value=p.type; propBeds.value=p.bedrooms; propBaths.value=p.bathrooms; propCars.value=p.carSpaces; propPrice.value=p.price; propStatus.value=p.status||''; propNotes.value=p.notes||'';
         btn.textContent='Save'; title.textContent='Edit Property';
-      } else { propAddress.value=''; propType.value=''; propBeds.value=''; propBaths.value=''; propCars.value=''; propPrice.value=''; propNotes.value='';
+      } else { propAddress.value=''; propType.value=''; propBeds.value=''; propBaths.value=''; propCars.value=''; propPrice.value=''; propStatus.value=''; propNotes.value='';
         btn.textContent='Save'; title.textContent='Add Property'; }
     }
     function hidePropertyForm(){ const m=document.getElementById('propertyModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingPropertyId=null; }
@@ -392,9 +472,9 @@
       const modal=document.getElementById('contactModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
       const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
       if(id){ const c=contacts.find(x=>x.id===id);
-        contactName.value=c.name||''; contactEmail.value=c.email||''; contactPhone.value=c.phone||''; contactType.value=c.type||''; contactNotes.value=c.notes||'';
+        contactName.value=c.name||''; contactEmail.value=c.email||''; contactPhone.value=c.phone||''; contactType.value=c.type||''; contactStage.value=c.stage||''; contactNotes.value=c.notes||'';
         btn.textContent='Save'; title.textContent='Edit Contact';
-      } else { contactName.value=''; contactEmail.value=''; contactPhone.value=''; contactType.value=''; contactNotes.value='';
+      } else { contactName.value=''; contactEmail.value=''; contactPhone.value=''; contactType.value=''; contactStage.value=''; contactNotes.value='';
         btn.textContent='Save'; title.textContent='Add Contact'; }
     }
     function hideContactForm(){ const m=document.getElementById('contactModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingContactId=null; }
@@ -402,32 +482,59 @@
     // Submit handlers
     function submitProperty(e){
       e.preventDefault();
-      const payload={ address:propAddress.value, type:propType.value, bedrooms:propBeds.value, bathrooms:propBaths.value, carSpaces:propCars.value, price:propPrice.value, notes:propNotes.value };
+      const payload={ address:propAddress.value, type:propType.value, bedrooms:propBeds.value, bathrooms:propBaths.value, carSpaces:propCars.value, price:propPrice.value, status:propStatus.value, notes:propNotes.value };
       if(editingPropertyId){ properties=properties.map(p=>p.id===editingPropertyId?{...p,...payload}:p); showNotification('Property saved'); }
-      else { properties.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Property added'); }
+      else { properties.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString(), isTrashed:false, trashedAt:'' }); showNotification('Property added'); }
       localStorage.setItem('properties', JSON.stringify(properties));
       markDirty();
       renderAll(); hidePropertyForm(); e.target.reset(); editingPropertyId=null;
     }
     function submitContact(e){
       e.preventDefault();
-      const payload={ name:contactName.value, email:contactEmail.value, phone:contactPhone.value, type:contactType.value, notes:contactNotes.value };
+      const payload={ name:contactName.value, email:contactEmail.value, phone:contactPhone.value, type:contactType.value, stage:contactStage.value, notes:contactNotes.value };
       if(editingContactId){ contacts=contacts.map(c=>c.id===editingContactId?{...c,...payload}:c); showNotification('Contact saved'); }
-      else { contacts.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Contact added'); }
+      else { contacts.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString(), isTrashed:false, trashedAt:'' }); showNotification('Contact added'); }
       localStorage.setItem('contacts', JSON.stringify(contacts));
       markDirty();
       renderAll(); hideContactForm(); e.target.reset(); editingContactId=null;
     }
 
-    // Delete
-    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Property deleted'); }
-    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Contact deleted'); }
+    // Delete (now soft-delete with confirm)
+    function trashProperty(id){
+      if(!confirm('Move this property to Trash?')) return;
+      properties=properties.map(p=> p.id===id? {...p, isTrashed:true, trashedAt:new Date().toISOString()} : p);
+      localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Moved to Trash');
+    }
+    function trashContact(id){
+      if(!confirm('Move this contact to Trash?')) return;
+      contacts=contacts.map(c=> c.id===id? {...c, isTrashed:true, trashedAt:new Date().toISOString()} : c);
+      localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Moved to Trash');
+    }
+    function restoreProperty(id){
+      properties=properties.map(p=> p.id===id? {...p, isTrashed:false, trashedAt:''} : p);
+      localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Restored');
+    }
+    function restoreContact(id){
+      contacts=contacts.map(c=> c.id===id? {...c, isTrashed:false, trashedAt:''} : c);
+      localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Restored');
+    }
+    function deletePropertyForever(id){
+      if(!confirm('Permanently delete this property? This cannot be undone.')) return;
+      properties=properties.filter(p=>p.id!==id);
+      localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Deleted permanently','bg-red-600');
+    }
+    function deleteContactForever(id){
+      if(!confirm('Permanently delete this contact? This cannot be undone.')) return;
+      contacts=contacts.filter(c=>c.id!==id);
+      localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Deleted permanently','bg-red-600');
+    }
 
-    // Filtering + sorting helpers
+    // Filtering + sorting helpers (ignore trashed unless in Trash tab)
     function filterProps(list){
-      if(!searchTerm) return list;
-      return list.filter(p=>{
-        const s = `${p.address} ${p.type} ${p.bedrooms} ${p.bathrooms} ${p.carSpaces} ${p.price} ${p.createdAt||''} ${p.notes||''}`.toLowerCase();
+      const base = currentTab==='trash' || viewingTrashOf==='properties' ? list.filter(p=>p.isTrashed) : list.filter(p=>!p.isTrashed);
+      if(!searchTerm) return base;
+      return base.filter(p=>{
+        const s = `${p.address} ${p.type} ${p.bedrooms} ${p.bathrooms} ${p.carSpaces} ${p.price} ${p.createdAt||''} ${p.notes||''} ${p.status||''}`.toLowerCase();
         return s.includes(searchTerm);
       });
     }
@@ -439,9 +546,10 @@
       return arr;
     }
     function filterContacts(list){
-      if(!searchTerm) return list;
-      return list.filter(c=>{
-        const s = `${c.name} ${c.email||''} ${c.phone||''} ${c.type} ${c.createdAt||''} ${c.notes||''}`.toLowerCase();
+      const base = currentTab==='trash' || viewingTrashOf==='contacts' ? list.filter(c=>c.isTrashed) : list.filter(c=>!c.isTrashed);
+      if(!searchTerm) return base;
+      return base.filter(c=>{
+        const s = `${c.name} ${c.email||''} ${c.phone||''} ${c.type} ${c.stage||''} ${c.createdAt||''} ${c.notes||''}`.toLowerCase();
         return s.includes(searchTerm);
       });
     }
@@ -457,10 +565,23 @@
     async function copyText(t){ try{ await navigator.clipboard.writeText(t); showNotification('Copied to clipboard'); }catch(e){ showNotification('Copy failed','bg-red-600'); } }
     function mailtoProperty(p){
       const subject = encode(`Property: ${p.address}`);
-      const body = encode(`Address: ${p.address}\nType: ${p.type}\nBeds/Baths/Cars: ${p.bedrooms}/${p.bathrooms}/${p.carSpaces}\nPrice: ${p.price}\nNotes:\n${p.notes||''}`);
+      const body = encode(`Address: ${p.address}\nType: ${p.type}\nBeds/Baths/Cars: ${p.bedrooms}/${p.bathrooms}/${p.carSpaces}\nPrice: ${p.price}\nStatus: ${p.status||''}\nNotes:\n${p.notes||''}`);
       return `mailto:?subject=${subject}&body=${body}`;
     }
     function waLink(phone, text){ const num = (phone||'').replace(/[^\d]/g,''); return num? `https://wa.me/${num}?text=${encode(text||'')}` : '#'; }
+
+    // Badges
+    function statusBadge(status){
+      if(status==='Listed') return `<span class="badge badge-blue">${esc(status)}</span>`;
+      if(status==='Under Offer') return `<span class="badge badge-orange">${esc(status)}</span>`;
+      if(status==='Sold') return `<span class="badge badge-green">${esc(status)}</span>`;
+      return `<span class="badge badge-gray">${esc(status||'Unknown')}</span>`;
+    }
+    function stageBadge(stage){
+      const map={New:'badge-gray',Qualified:'badge-blue',Inspection:'badge-purple',Offer:'badge-orange',Won:'badge-green',Lost:'badge-red'};
+      const cls = map[stage]||'badge-gray';
+      return `<span class="badge ${cls}">${esc(stage||'')}</span>`;
+    }
 
     // Renderers
     function renderPropertiesTo(containerId, list){
@@ -470,9 +591,10 @@
         <div class="card">
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-semibold">${esc(p.address)}</h3>
-            <span class="text-xs bg-primary text-white px-2 py-1 rounded">${esc(p.type)}</span>
+            <div class="flex gap-2 items-center">${statusBadge(p.status)}${p.isTrashed?'<span class="badge badge-red">Trashed</span>':''}</div>
           </div>
           <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <span><i class="fa-solid fa-building mr-1"></i>${esc(p.type)}</span>
             <span><i class="fa-solid fa-bed mr-1"></i>${esc(p.bedrooms)}</span>
             <span><i class="fa-solid fa-bath mr-1"></i>${esc(p.bathrooms)}</span>
             <span><i class="fa-solid fa-car mr-1"></i>${esc(p.carSpaces)}</span>
@@ -485,11 +607,14 @@
             <span class="text-xs text-gray-500">${esc(p.createdAt||'')}</span>
           </div>
           <div class="flex flex-wrap gap-2 mt-3">
-            <button class="btn btn-blue" onclick="showPropertyForm(${p.id})">Edit</button>
-            <button class="btn btn-red" onclick="deleteProperty(${p.id})">Delete</button>
-            <a class="btn btn-ghost" href="${mapUrl(p.address)}" target="_blank" rel="noopener">Open in Maps</a>
-            <button class="btn btn-ghost" onclick="copyText('${esc(p.address).replace(/'/g, "\\'")}')">Copy address</button>
-            <a class="btn btn-ghost" href="${mailtoProperty(p)}">Share via Email</a>
+            ${p.isTrashed
+              ? `<button class="btn btn-blue" onclick="restoreProperty(${p.id})">Restore</button>
+                 <button class="btn btn-red" onclick="deletePropertyForever(${p.id})">Delete forever</button>`
+              : `<button class="btn btn-blue" onclick="showPropertyForm(${p.id})">Edit</button>
+                 <button class="btn btn-red" onclick="trashProperty(${p.id})">Move to Trash</button>
+                 <a class="btn btn-ghost" href="${mapUrl(p.address)}" target="_blank" rel="noopener">Open in Maps</a>
+                 <button class="btn btn-ghost" onclick="copyText('${esc(p.address).replace(/'/g, "\\'")}')">Copy address</button>
+                 <a class="btn btn-ghost" href="${mailtoProperty(p)}">Share via Email</a>`}
           </div>
         </div>
       `).join('');
@@ -501,7 +626,7 @@
         <div class="card">
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-semibold">${esc(c.name)}</h3>
-            <span class="text-xs bg-blue-500 text-white px-2 py-1 rounded">${esc(c.type)}</span>
+            <div class="flex gap-2 items-center">${stageBadge(c.stage)}${c.isTrashed?'<span class="badge badge-red">Trashed</span>':''}</div>
           </div>
           <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             ${c.email ? `<p><i class="fa-solid fa-envelope mr-2"></i>${esc(c.email)}</p>` : ''}
@@ -511,11 +636,14 @@
           <div class="flex justify-between items-center mt-2">
             <span class="text-xs text-gray-500">${esc(c.createdAt||'')}</span>
             <div class="flex flex-wrap gap-2">
-              <button class="btn btn-blue" onclick="showContactForm(${c.id})">Edit</button>
-              <button class="btn btn-red" onclick="deleteContact(${c.id})">Delete</button>
-              ${c.phone ? `<a class="btn btn-ghost" href="tel:${stripPhone(c.phone)}">Call</a>` : ''}
-              ${c.email ? `<a class="btn btn-ghost" href="mailto:${encode(c.email)}?subject=${encode('Hello ' + (c.name||''))}">Email</a>` : ''}
-              ${c.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(c.phone, 'Hi ' + (c.name||''))}">WhatsApp</a>` : ''}
+              ${c.isTrashed
+                ? `<button class="btn btn-blue" onclick="restoreContact(${c.id})">Restore</button>
+                   <button class="btn btn-red" onclick="deleteContactForever(${c.id})">Delete forever</button>`
+                : `${c.phone ? `<a class="btn btn-ghost" href="tel:${stripPhone(c.phone)}">Call</a>` : ''}
+                   ${c.email ? `<a class="btn btn-ghost" href="mailto:${encode(c.email)}?subject=${encode('Hello ' + (c.name||''))}">Email</a>` : ''}
+                   ${c.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(c.phone, 'Hi ' + (c.name||''))}">WhatsApp</a>` : ''}
+                   <button class="btn btn-blue" onclick="showContactForm(${c.id})">Edit</button>
+                   <button class="btn btn-red" onclick="trashContact(${c.id})">Move to Trash</button>`}
             </div>
           </div>
         </div>
@@ -523,11 +651,11 @@
     }
 
     function renderAll(){
-      // Counts
-      document.getElementById('propertyCount').textContent = properties.length;
-      document.getElementById('contactCount').textContent  = contacts.length;
+      // Counts (exclude trash in dashboard)
+      document.getElementById('propertyCount').textContent = properties.filter(p=>!p.isTrashed).length;
+      document.getElementById('contactCount').textContent  = contacts.filter(c=>!c.isTrashed).length;
 
-      // Dashboard lists (recent)
+      // Dashboard lists (recent, non-trashed or trashed if toggled)
       const pDash = sortProps(filterProps(properties)).slice(0, 10);
       const cDash = sortContacts(filterContacts(contacts)).slice(0, 10);
       renderPropertiesTo('propertiesList', pDash);
@@ -536,6 +664,12 @@
       // Only tabs
       renderPropertiesTo('propertiesListOnly', sortProps(filterProps(properties)));
       renderContactsTo('contactsListOnly', sortContacts(filterContacts(contacts)));
+
+      // Trash tab
+      if (currentTab==='trash') {
+        renderPropertiesTo('trashProps', properties.filter(p=>p.isTrashed));
+        renderContactsTo('trashContacts', contacts.filter(c=>c.isTrashed));
+      }
     }
 
     function showNotification(message, color='bg-green-500'){
@@ -543,15 +677,20 @@
       document.body.appendChild(n); setTimeout(()=>n.remove(), 2500);
     }
 
-    // CSV export/import (with notes)
+    // Quick dashboard trash toggles
+    function toggleTrashView(which){
+      viewingTrashOf = viewingTrashOf===which ? null : which; renderAll();
+    }
+
+    // CSV export/import (with notes + status + trash flags)
     function exportPropertiesCSV(){
-      const headers=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes'];
-      const rows=[headers].concat(properties.map(p=>[p.id,p.address,p.type,p.bedrooms,p.bathrooms,p.carSpaces,p.price,p.createdAt||'',p.notes||'']));
+      const headers=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes','status','istrashed','trashedat'];
+      const rows=[headers].concat(properties.map(p=>[p.id,p.address,p.type,p.bedrooms,p.bathrooms,p.carSpaces,p.price,p.createdAt||'',p.notes||'',p.status||'',p.isTrashed?'TRUE':'',p.trashedAt||'']));
       downloadFile('properties.csv', arrayToCSV(rows));
     }
     function exportContactsCSV(){
-      const headers=['id','name','email','phone','type','createdat','notes'];
-      const rows=[headers].concat(contacts.map(c=>[c.id,c.name,c.email||'',c.phone||'',c.type,c.createdAt||'',c.notes||'']));
+      const headers=['id','name','email','phone','type','createdat','notes','stage','istrashed','trashedat'];
+      const rows=[headers].concat(contacts.map(c=>[c.id,c.name,c.email||'',c.phone||'',c.type,c.createdAt||'',c.notes||'',c.stage||'',c.isTrashed?'TRUE':'',c.trashedAt||'']));
       downloadFile('contacts.csv', arrayToCSV(rows));
     }
     function downloadFile(filename, text){
@@ -563,9 +702,12 @@
       r.onload=()=>{ try{
           const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
           const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
-          const need=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes']; const miss=need.filter(k=>idx(k)===-1);
+          const need=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes','status','istrashed','trashedat']; const miss=need.filter(k=>idx(k)===-1);
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
-          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'', carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000),
+            address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'',
+            carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'',
+            status:v[idx('status')]||'', isTrashed:/true/i.test(v[idx('istrashed')]||''), trashedAt:v[idx('trashedat')]||'' }));
           const map=new Map(properties.map(p=>[p.id,p])); imported.forEach(p=>map.set(p.id,{...(map.get(p.id)||{}),...p})); properties=[...map.values()];
           localStorage.setItem('properties', JSON.stringify(properties)); markDirty(); renderAll(); showNotification('Properties imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
@@ -577,9 +719,9 @@
       r.onload=()=>{ try{
           const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
           const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
-          const need=['id','name','email','phone','type','createdat','notes']; const miss=need.filter(k=>idx(k)===-1);
+          const need=['id','name','email','phone','type','createdat','notes','stage','istrashed','trashedat']; const miss=need.filter(k=>idx(k)===-1);
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
-          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'', stage:v[idx('stage')]||'', isTrashed:/true/i.test(v[idx('istrashed')]||''), trashedAt:v[idx('trashedat')]||'' }));
           const map=new Map(contacts.map(c=>[c.id,c])); imported.forEach(c=>map.set(c.id,{...(map.get(c.id)||{}),...c})); contacts=[...map.values()];
           localStorage.setItem('contacts', JSON.stringify(contacts)); markDirty(); renderAll(); showNotification('Contacts imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
@@ -587,8 +729,79 @@
       }; r.readAsText(file);
     }
 
+    // Calendar (month view: supports now → +30 years)
+    const calTitle = document.getElementById('calTitle');
+    const calGrid  = document.getElementById('calGrid');
+    let calRef = new Date(); // current anchor month
+    const today = new Date();
+    function clampToWindow(d){
+      const start = new Date();
+      start.setHours(0,0,0,0);
+      const end = new Date();
+      end.setFullYear(end.getFullYear()+30);
+      if(d < start) return new Date(start);
+      if(d > end) return new Date(end);
+      return d;
+    }
+    function startOfMonth(d){ const x=new Date(d); x.setDate(1); x.setHours(0,0,0,0); return x; }
+    function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+    function renderCalendar(){
+      const d = clampToWindow(calRef);
+      const y = d.getFullYear(), m = d.getMonth();
+      calTitle.textContent = d.toLocaleString(undefined, { month:'long', year:'numeric' });
+      calGrid.innerHTML = '';
+      const first = startOfMonth(d);
+      const pad = first.getDay(); // 0=Sun
+      const total = daysInMonth(y,m);
+
+      // leading blanks
+      for(let i=0;i<pad;i++){ const cell=document.createElement('div'); cell.className='cal-cell'; calGrid.appendChild(cell); }
+
+      for(let day=1; day<=total; day++){
+        const cell=document.createElement('div'); cell.className='cal-cell';
+        const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const isToday = (y===today.getFullYear() && m===today.getMonth() && day===today.getDate());
+        if(isToday) cell.classList.add('cal-today');
+        cell.innerHTML = `<div class="text-xs text-gray-500">${day}</div><div id="ev-${dateStr}"></div>`;
+        cell.addEventListener('dblclick', ()=> openEventModal(dateStr));
+        calGrid.appendChild(cell);
+
+        // render events for this day
+        const dayEvents = events.filter(ev => ev.date === dateStr);
+        const host = cell.querySelector(`#ev-${dateStr}`);
+        dayEvents.slice(0,4).forEach(ev=>{
+          const div=document.createElement('div'); div.className='cal-event'; div.textContent = (ev.time? ev.time+' · ' : '') + ev.title;
+          host.appendChild(div);
+        });
+        if (dayEvents.length>4){
+          const more=document.createElement('div'); more.className='cal-event'; more.textContent = `+${dayEvents.length-4} more`;
+          host.appendChild(more);
+        }
+      }
+    }
+    function prevMonth(){ calRef.setMonth(calRef.getMonth()-1); renderCalendar(); }
+    function nextMonth(){ calRef.setMonth(calRef.getMonth()+1); renderCalendar(); }
+    function goToday(){ calRef = new Date(); renderCalendar(); }
+
+    function openEventModal(dateStr){
+      const modal=document.getElementById('eventModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
+      const d = dateStr || new Date().toISOString().slice(0,10);
+      evDate.value = d; evTime.value=''; evTitle.value=''; evNotes.value='';
+    }
+    function closeEventModal(){ const m=document.getElementById('eventModal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+    function saveEvent(e){
+      e.preventDefault();
+      const ev = { id: Date.now(), date: evDate.value, time: evTime.value, title: evTitle.value, notes: evNotes.value };
+      events.push(ev);
+      localStorage.setItem('events', JSON.stringify(events));
+      closeEventModal();
+      showNotification('Event saved');
+      if(currentTab==='calendar') renderCalendar();
+    }
+
     // Initial render
     renderAll();
+    if(currentTab==='calendar') renderCalendar();
   </script>
 
   <!-- ===== Google API loader ===== -->
@@ -649,22 +862,28 @@
       return gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: rangeA1 });
     }
 
-    // Reusable pull/push
+    // Reusable pull/push (now with status + trash fields)
     async function pullFromSheets() {
       setStatus('Syncing ↓ from Sheets…');
-      const props = await readSheet('Properties!A2:I'); // id,address,type,bedrooms,bathrooms,carspaces,price,createdat,notes
-      const cons  = await readSheet('Contacts!A2:G');   // id,name,email,phone,type,createdat,notes
+      const props = await readSheet('Properties!A2:L'); // 12 cols
+      const cons  = await readSheet('Contacts!A2:J');   // 10 cols
       properties = (props || []).map(r => ({
         id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
         address: r[1] || '', type: r[2] || '',
         bedrooms: r[3] || '', bathrooms: r[4] || '',
         carSpaces: r[5] || '', price: r[6] || '',
-        createdAt: r[7] || '', notes: r[8] || ''
+        createdAt: r[7] || '', notes: r[8] || '',
+        status: r[9] || '',
+        isTrashed: /true/i.test(r[10]||''),
+        trashedAt: r[11] || ''
       }));
       contacts = (cons || []).map(r => ({
         id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
         name: r[1] || '', email: r[2] || '', phone: r[3] || '',
-        type: r[4] || '', createdAt: r[5] || '', notes: r[6] || ''
+        type: r[4] || '', createdAt: r[5] || '', notes: r[6] || '',
+        stage: r[7] || '',
+        isTrashed: /true/i.test(r[8]||''),
+        trashedAt: r[9] || ''
       }));
       localStorage.setItem('properties', JSON.stringify(properties));
       localStorage.setItem('contacts', JSON.stringify(contacts));
@@ -678,13 +897,15 @@
       setStatus('Syncing ↑ to Sheets…');
       const propValues = (properties || []).map(p => [
         p.id, p.address || '', p.type || '', p.bedrooms || '',
-        p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || '', p.notes || ''
+        p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || '',
+        p.notes || '', p.status || '', p.isTrashed ? 'TRUE' : '', p.trashedAt || ''
       ]);
       const conValues = (contacts || []).map(c => [
-        c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || '', c.notes || ''
+        c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || '',
+        c.notes || '', c.stage || '', c.isTrashed ? 'TRUE' : '', c.trashedAt || ''
       ]);
-      await clearRange('Properties!A2:I');
-      await clearRange('Contacts!A2:G');
+      await clearRange('Properties!A2:L');
+      await clearRange('Contacts!A2:J');
       if (propValues.length) await writeSheet('Properties!A2', propValues);
       if (conValues.length)  await writeSheet('Contacts!A2',  conValues);
       dirty = false;
@@ -732,13 +953,8 @@
         // Auto-push every 2 minutes if there are pending changes
         setInterval(async () => {
           try {
-            if (auth.isSignedIn.get() && dirty) {
-              await pushToSheets();
-            }
-          } catch (e) {
-            console.error(e);
-            setStatus('Sync error');
-          }
+            if (auth.isSignedIn.get() && dirty) await pushToSheets();
+          } catch (e) { console.error(e); setStatus('Sync error'); }
         }, 120000);
 
         // Best-effort note on unload
