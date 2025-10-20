@@ -23,6 +23,7 @@
     .btn-ghost { @apply bg-gray-100 dark:bg-gray-700; }
     .card { @apply bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm; }
     .muted { @apply text-xs text-gray-600 dark:text-gray-400; }
+    .tab-active { @apply text-primary; }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
@@ -35,6 +36,22 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <!-- Search -->
+        <div class="hidden md:flex items-center">
+          <input id="globalSearch" type="search" placeholder="Search…" class="px-3 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 outline-none">
+        </div>
+
+        <!-- Sort dropdowns -->
+        <select id="propSort" class="hidden md:block px-2 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700">
+          <option value="newest">Props: Newest</option>
+          <option value="price">Props: Price</option>
+          <option value="beds">Props: Beds</option>
+        </select>
+        <select id="contactSort" class="hidden md:block px-2 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700">
+          <option value="newest">Contacts: Newest</option>
+          <option value="name">Contacts: Name</option>
+        </select>
+
         <span id="syncStatus" class="hidden text-xs text-gray-500 dark:text-gray-400 mr-1"></span>
         <button id="darkToggle" class="btn btn-ghost" title="Toggle dark mode">
           <i class="fa-solid fa-moon"></i>
@@ -44,59 +61,95 @@
         </button>
       </div>
     </div>
+    <!-- Mobile filters -->
+    <div class="mt-3 flex md:hidden gap-2">
+      <input id="globalSearchMobile" type="search" placeholder="Search…" class="flex-1 px-3 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 outline-none">
+      <select id="propSortMobile" class="px-2 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700">
+        <option value="newest">P:New</option>
+        <option value="price">P:$</option>
+        <option value="beds">P:Beds</option>
+      </select>
+      <select id="contactSortMobile" class="px-2 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700">
+        <option value="newest">C:New</option>
+        <option value="name">C:Name</option>
+      </select>
+    </div>
   </header>
 
   <!-- Main -->
   <main class="p-4 pb-28">
-    <!-- Counters -->
-    <div class="grid grid-cols-2 gap-3 mb-6">
-      <div class="card text-center">
-        <i class="fa-solid fa-building text-primary text-2xl mb-2"></i>
-        <p class="text-2xl font-bold text-primary" id="propertyCount">0</p>
-        <p class="muted">Properties</p>
-      </div>
-      <div class="card text-center">
-        <i class="fa-solid fa-users text-blue-500 text-2xl mb-2"></i>
-        <p class="text-2xl font-bold text-blue-500" id="contactCount">0</p>
-        <p class="muted">Contacts</p>
-      </div>
-    </div>
-
-    <!-- Properties -->
-    <section class="mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-bold">Recent Properties</h2>
-        <div class="flex gap-2">
-          <button class="btn btn-ghost" onclick="exportPropertiesCSV()" title="Export properties CSV">
-            <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
-          </button>
-          <button class="btn btn-ghost" onclick="document.getElementById('importPropsInput').click()" title="Import properties CSV">
-            <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
-          </button>
-          <input id="importPropsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportProps(this.files[0])">
+    <!-- DASHBOARD (both sections visible) -->
+    <section id="dashboardSection">
+      <!-- Counters -->
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <div class="card text-center">
+          <i class="fa-solid fa-building text-primary text-2xl mb-2"></i>
+          <p class="text-2xl font-bold text-primary" id="propertyCount">0</p>
+          <p class="muted">Properties</p>
+        </div>
+        <div class="card text-center">
+          <i class="fa-solid fa-users text-blue-500 text-2xl mb-2"></i>
+          <p class="text-2xl font-bold text-blue-500" id="contactCount">0</p>
+          <p class="muted">Contacts</p>
         </div>
       </div>
-      <div id="propertiesList" class="space-y-3">
-        <p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>
-      </div>
+
+      <!-- Properties -->
+      <section id="propertiesSection" class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-bold">Recent Properties</h2>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost" onclick="exportPropertiesCSV()" title="Export properties CSV">
+              <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
+            </button>
+            <button class="btn btn-ghost" onclick="document.getElementById('importPropsInput').click()" title="Import properties CSV">
+              <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
+            </button>
+            <input id="importPropsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportProps(this.files[0])">
+          </div>
+        </div>
+        <div id="propertiesList" class="space-y-3">
+          <p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>
+        </div>
+      </section>
+
+      <!-- Contacts -->
+      <section id="contactsSection" class="mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-bold">Recent Contacts</h2>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost" onclick="exportContactsCSV()" title="Export contacts CSV">
+              <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
+            </button>
+            <button class="btn btn-ghost" onclick="document.getElementById('importContactsInput').click()" title="Import contacts CSV">
+              <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
+            </button>
+            <input id="importContactsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportContacts(this.files[0])">
+          </div>
+        </div>
+        <div id="contactsList" class="space-y-3">
+          <p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>
+        </div>
+      </section>
     </section>
 
-    <!-- Contacts -->
-    <section class="mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-bold">Recent Contacts</h2>
-        <div class="flex gap-2">
-          <button class="btn btn-ghost" onclick="exportContactsCSV()" title="Export contacts CSV">
-            <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
-          </button>
-          <button class="btn btn-ghost" onclick="document.getElementById('importContactsInput').click()" title="Import contacts CSV">
-            <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
-          </button>
-          <input id="importContactsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportContacts(this.files[0])">
-        </div>
-      </div>
-      <div id="contactsList" class="space-y-3">
-        <p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>
+    <!-- PROPERTIES ONLY -->
+    <section id="onlyProperties" class="hidden">
+      <h2 class="text-lg font-bold mb-3">All Properties</h2>
+      <div id="propertiesListOnly" class="space-y-3"></div>
+    </section>
+
+    <!-- CONTACTS ONLY -->
+    <section id="onlyContacts" class="hidden">
+      <h2 class="text-lg font-bold mb-3">All Contacts</h2>
+      <div id="contactsListOnly" class="space-y-3"></div>
+    </section>
+
+    <!-- CALENDAR (placeholder) -->
+    <section id="calendarSection" class="hidden">
+      <h2 class="text-lg font-bold mb-3">Calendar</h2>
+      <div class="card">
+        <p class="text-sm text-gray-600 dark:text-gray-300">Calendar integration coming soon (export .ics, reminders, next actions).</p>
       </div>
     </section>
   </main>
@@ -104,19 +157,19 @@
   <!-- Bottom Nav -->
   <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t p-2">
     <div class="flex justify-around">
-      <button class="flex flex-col items-center p-2 text-primary">
+      <button id="navDashboard" class="flex flex-col items-center p-2 tab-active">
         <i class="fa-solid fa-chart-line text-xl mb-1"></i>
         <span class="text-xs">Dashboard</span>
       </button>
-      <button class="flex flex-col items-center p-2 text-gray-500">
+      <button id="navProperties" class="flex flex-col items-center p-2">
         <i class="fa-solid fa-building text-xl mb-1"></i>
         <span class="text-xs">Properties</span>
       </button>
-      <button class="flex flex-col items-center p-2 text-gray-500">
+      <button id="navContacts" class="flex flex-col items-center p-2">
         <i class="fa-solid fa-users text-xl mb-1"></i>
         <span class="text-xs">Contacts</span>
       </button>
-      <button class="flex flex-col items-center p-2 text-gray-500">
+      <button id="navCalendar" class="flex flex-col items-center p-2">
         <i class="fa-solid fa-calendar text-xl mb-1"></i>
         <span class="text-xs">Calendar</span>
       </button>
@@ -173,7 +226,9 @@
         </div>
         <input type="text" id="propPrice" inputmode="decimal" placeholder="Price e.g. 750000" required
                class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-        <button type="submit" class="w-full btn btn-primary">Add Property</button>
+        <textarea id="propNotes" placeholder="Notes (open home, vendor situation, agent comments…)" rows="3"
+                  class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600"></textarea>
+        <button type="submit" class="w-full btn btn-primary">Save</button>
       </form>
     </div>
   </div>
@@ -202,12 +257,14 @@
           <option value="tenant">Tenant</option>
           <option value="investor">Investor</option>
         </select>
-        <button type="submit" class="w-full btn btn-blue">Add Contact</button>
+        <textarea id="contactNotes" placeholder="Notes (budget, preferences, follow-ups…)" rows="3"
+                  class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600"></textarea>
+        <button type="submit" class="w-full btn btn-blue">Save</button>
       </form>
     </div>
   </div>
 
-  <!-- ===== Core App Script (localStorage + CSV + UI) ===== -->
+  <!-- ===== Core App Script (localStorage + CSV + UI + Tabs + Search/Sort + Quick Actions) ===== -->
   <script>
     // Dark mode
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -226,23 +283,79 @@
     let editingPropertyId = null;
     let editingContactId  = null;
 
+    // State (tabs, filters)
+    let currentTab = localStorage.getItem('crm_tab') || 'dashboard';
+    let searchTerm = '';
+    let propSort = localStorage.getItem('crm_prop_sort') || 'newest';
+    let contactSort = localStorage.getItem('crm_contact_sort') || 'newest';
+
     // Utils
     const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const fmtAUD = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' });
-    const toMoney = v => {
-      const n = Number(String(v).replace(/[^0-9.]/g,''));
-      return isNaN(n) ? '' : fmtAUD.format(n);
-    };
+    const toMoney = v => { const n = Number(String(v).replace(/[^0-9.]/g,'')); return isNaN(n) ? '' : fmtAUD.format(n); };
     const statusEl = document.getElementById('syncStatus');
     const setStatus = (txt) => { statusEl.textContent = txt; statusEl.classList.remove('hidden'); setTimeout(()=>statusEl.classList.add('hidden'), 5000); };
+    const stripPhone = p => (p||'').replace(/[^\d]/g,'');
+    const encode = s => encodeURIComponent(s || '');
+
+    // Search inputs
+    const searchInput = document.getElementById('globalSearch');
+    const searchMobile = document.getElementById('globalSearchMobile');
+    [searchInput, searchMobile].forEach(el => el && el.addEventListener('input', e => {
+      searchTerm = e.target.value.toLowerCase();
+      renderAll();
+    }));
+
+    // Sort controls
+    function hookSort(id, key, storeKey) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = key;
+      el.addEventListener('change', () => {
+        const v = el.value;
+        if (storeKey === 'crm_prop_sort') { propSort = v; localStorage.setItem(storeKey, v); }
+        else { contactSort = v; localStorage.setItem(storeKey, v); }
+        renderAll();
+      });
+    }
+    hookSort('propSort', propSort, 'crm_prop_sort');
+    hookSort('contactSort', contactSort, 'crm_contact_sort');
+    hookSort('propSortMobile', propSort, 'crm_prop_sort');
+    hookSort('contactSortMobile', contactSort, 'crm_contact_sort');
+
+    // Tabs
+    const tabs = {
+      dashboard: document.getElementById('dashboardSection'),
+      propsOnly: document.getElementById('onlyProperties'),
+      contactsOnly: document.getElementById('onlyContacts'),
+      calendar: document.getElementById('calendarSection')
+    };
+    const navs = {
+      dashboard: document.getElementById('navDashboard'),
+      propsOnly: document.getElementById('navProperties'),
+      contactsOnly: document.getElementById('navContacts'),
+      calendar: document.getElementById('navCalendar')
+    };
+    function setTab(tab) {
+      currentTab = tab;
+      localStorage.setItem('crm_tab', tab);
+      for (const k in tabs) tabs[k].classList.toggle('hidden', k !== tab && !(tab === 'dashboard' && (k==='propsOnly'||k==='contactsOnly')));
+      // In dashboard we hide the “only” sections but show the main dashboardSection which already contains both lists.
+      tabs.dashboard.classList.toggle('hidden', tab !== 'dashboard');
+      tabs.propsOnly.classList.toggle('hidden', tab !== 'propsOnly');
+      tabs.contactsOnly.classList.toggle('hidden', tab !== 'contactsOnly');
+      tabs.calendar.classList.toggle('hidden', tab !== 'calendar');
+      for (const k in navs) navs[k].classList.toggle('tab-active', k === tab);
+      renderAll();
+    }
+    navs.dashboard.addEventListener('click', ()=> setTab('dashboard'));
+    navs.propsOnly.addEventListener('click', ()=> setTab('propsOnly'));
+    navs.contactsOnly.addEventListener('click', ()=> setTab('contactsOnly'));
+    navs.calendar.addEventListener('click', ()=> setTab('calendar'));
+    setTab(currentTab); // init
 
     // CSV helpers
-    function escapeCSV(val) {
-      if (val === null || val === undefined) return '';
-      const s = String(val);
-      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-      return s;
-    }
+    function escapeCSV(val) { if (val==null) return ''; const s=String(val); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
     function arrayToCSV(rows) { return rows.map(r => r.map(escapeCSV).join(',')).join('\n'); }
     function parseCSV(text) {
       const rows = []; let row = [], cur = '', inQ = false;
@@ -265,10 +378,10 @@
       const modal=document.getElementById('propertyModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
       const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
       if(id){ const p=properties.find(x=>x.id===id);
-        propAddress.value=p.address; propType.value=p.type; propBeds.value=p.bedrooms; propBaths.value=p.bathrooms; propCars.value=p.carSpaces; propPrice.value=p.price;
-        btn.textContent='Save changes'; title.textContent='Edit Property';
-      } else { propAddress.value=''; propType.value=''; propBeds.value=''; propBaths.value=''; propCars.value=''; propPrice.value='';
-        btn.textContent='Add Property'; title.textContent='Add Property'; }
+        propAddress.value=p.address; propType.value=p.type; propBeds.value=p.bedrooms; propBaths.value=p.bathrooms; propCars.value=p.carSpaces; propPrice.value=p.price; propNotes.value=p.notes||'';
+        btn.textContent='Save'; title.textContent='Edit Property';
+      } else { propAddress.value=''; propType.value=''; propBeds.value=''; propBaths.value=''; propCars.value=''; propPrice.value=''; propNotes.value='';
+        btn.textContent='Save'; title.textContent='Add Property'; }
     }
     function hidePropertyForm(){ const m=document.getElementById('propertyModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingPropertyId=null; }
 
@@ -277,40 +390,79 @@
       const modal=document.getElementById('contactModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
       const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
       if(id){ const c=contacts.find(x=>x.id===id);
-        contactName.value=c.name||''; contactEmail.value=c.email||''; contactPhone.value=c.phone||''; contactType.value=c.type||'';
-        btn.textContent='Save changes'; title.textContent='Edit Contact';
-      } else { contactName.value=''; contactEmail.value=''; contactPhone.value=''; contactType.value='';
-        btn.textContent='Add Contact'; title.textContent='Add Contact'; }
+        contactName.value=c.name||''; contactEmail.value=c.email||''; contactPhone.value=c.phone||''; contactType.value=c.type||''; contactNotes.value=c.notes||'';
+        btn.textContent='Save'; title.textContent='Edit Contact';
+      } else { contactName.value=''; contactEmail.value=''; contactPhone.value=''; contactType.value=''; contactNotes.value='';
+        btn.textContent='Save'; title.textContent='Add Contact'; }
     }
     function hideContactForm(){ const m=document.getElementById('contactModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingContactId=null; }
 
     // Submit handlers
     function submitProperty(e){
       e.preventDefault();
-      const payload={ address:propAddress.value, type:propType.value, bedrooms:propBeds.value, bathrooms:propBaths.value, carSpaces:propCars.value, price:propPrice.value };
-      if(editingPropertyId){ properties=properties.map(p=>p.id===editingPropertyId?{...p,...payload}:p); showNotification('Property updated'); }
+      const payload={ address:propAddress.value, type:propType.value, bedrooms:propBeds.value, bathrooms:propBaths.value, carSpaces:propCars.value, price:propPrice.value, notes:propNotes.value };
+      if(editingPropertyId){ properties=properties.map(p=>p.id===editingPropertyId?{...p,...payload}:p); showNotification('Property saved'); }
       else { properties.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Property added'); }
       localStorage.setItem('properties', JSON.stringify(properties));
-      renderProperties(); updateCounts(); hidePropertyForm(); e.target.reset(); editingPropertyId=null;
+      renderAll(); hidePropertyForm(); e.target.reset(); editingPropertyId=null;
     }
     function submitContact(e){
       e.preventDefault();
-      const payload={ name:contactName.value, email:contactEmail.value, phone:contactPhone.value, type:contactType.value };
-      if(editingContactId){ contacts=contacts.map(c=>c.id===editingContactId?{...c,...payload}:c); showNotification('Contact updated'); }
+      const payload={ name:contactName.value, email:contactEmail.value, phone:contactPhone.value, type:contactType.value, notes:contactNotes.value };
+      if(editingContactId){ contacts=contacts.map(c=>c.id===editingContactId?{...c,...payload}:c); showNotification('Contact saved'); }
       else { contacts.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Contact added'); }
       localStorage.setItem('contacts', JSON.stringify(contacts));
-      renderContacts(); updateCounts(); hideContactForm(); e.target.reset(); editingContactId=null;
+      renderAll(); hideContactForm(); e.target.reset(); editingContactId=null;
     }
 
     // Delete
-    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); renderProperties(); updateCounts(); showNotification('Property deleted'); }
-    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); renderContacts(); updateCounts(); showNotification('Contact deleted'); }
+    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); renderAll(); showNotification('Property deleted'); }
+    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); renderAll(); showNotification('Contact deleted'); }
+
+    // Filtering + sorting helpers
+    function filterProps(list){
+      if(!searchTerm) return list;
+      return list.filter(p=>{
+        const s = `${p.address} ${p.type} ${p.bedrooms} ${p.bathrooms} ${p.carSpaces} ${p.price} ${p.createdAt||''} ${p.notes||''}`.toLowerCase();
+        return s.includes(searchTerm);
+      });
+    }
+    function sortProps(list){
+      const arr = [...list];
+      if (propSort==='price') arr.sort((a,b)=> (Number(b.price||0))-(Number(a.price||0)));
+      else if (propSort==='beds') arr.sort((a,b)=> (Number(b.bedrooms||0))-(Number(a.bedrooms||0)));
+      else arr.sort((a,b)=> (Number(b.id)-Number(a.id))); // newest
+      return arr;
+    }
+    function filterContacts(list){
+      if(!searchTerm) return list;
+      return list.filter(c=>{
+        const s = `${c.name} ${c.email||''} ${c.phone||''} ${c.type} ${c.createdAt||''} ${c.notes||''}`.toLowerCase();
+        return s.includes(searchTerm);
+      });
+    }
+    function sortContacts(list){
+      const arr = [...list];
+      if (contactSort==='name') arr.sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+      else arr.sort((a,b)=> (Number(b.id)-Number(a.id))); // newest
+      return arr;
+    }
+
+    // Quick actions
+    function mapUrl(address){ return `https://www.google.com/maps/search/?api=1&query=${encode(address)}`; }
+    async function copyText(t){ try{ await navigator.clipboard.writeText(t); showNotification('Copied to clipboard'); }catch(e){ showNotification('Copy failed','bg-red-600'); } }
+    function mailtoProperty(p){
+      const subject = encode(`Property: ${p.address}`);
+      const body = encode(`Address: ${p.address}\nType: ${p.type}\nBeds/Baths/Cars: ${p.bedrooms}/${p.bathrooms}/${p.carSpaces}\nPrice: ${p.price}\nNotes:\n${p.notes||''}`);
+      return `mailto:?subject=${subject}&body=${body}`;
+    }
+    function waLink(phone, text){ const num = stripPhone(phone); return num? `https://wa.me/${num}?text=${encode(text||'')}` : '#'; }
 
     // Renderers
-    function renderProperties(){
-      const container=document.getElementById('propertiesList');
-      if(!properties.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>'; return; }
-      container.innerHTML = properties.slice(-50).reverse().map(p=>`
+    function renderPropertiesTo(containerId, list){
+      const container=document.getElementById(containerId);
+      if(!list.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No properties found.</p>'; return; }
+      container.innerHTML = list.map(p=>`
         <div class="card">
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-semibold">${esc(p.address)}</h3>
@@ -321,21 +473,27 @@
             <span><i class="fa-solid fa-bath mr-1"></i>${esc(p.bathrooms)}</span>
             <span><i class="fa-solid fa-car mr-1"></i>${esc(p.carSpaces)}</span>
           </div>
+          <div class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+            ${p.notes ? `<p><i class="fa-regular fa-note-sticky mr-2"></i>${esc(p.notes)}</p>` : ''}
+          </div>
           <div class="flex justify-between items-center">
             <span class="font-bold text-primary">${toMoney(p.price) || esc(p.price)}</span>
             <span class="text-xs text-gray-500">${esc(p.createdAt||'')}</span>
           </div>
-          <div class="flex gap-2 mt-3">
+          <div class="flex flex-wrap gap-2 mt-3">
             <button class="btn btn-blue" onclick="showPropertyForm(${p.id})">Edit</button>
             <button class="btn btn-red" onclick="deleteProperty(${p.id})">Delete</button>
+            <a class="btn btn-ghost" href="${mapUrl(p.address)}" target="_blank" rel="noopener">Open in Maps</a>
+            <button class="btn btn-ghost" onclick="copyText('${esc(p.address).replace(/'/g, "\\'")}')">Copy address</button>
+            <a class="btn btn-ghost" href="${mailtoProperty(p)}">Share via Email</a>
           </div>
         </div>
       `).join('');
     }
-    function renderContacts(){
-      const container=document.getElementById('contactsList');
-      if(!contacts.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>'; return; }
-      container.innerHTML = contacts.slice(-50).reverse().map(c=>`
+    function renderContactsTo(containerId, list){
+      const container=document.getElementById(containerId);
+      if(!list.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No contacts found.</p>'; return; }
+      container.innerHTML = list.map(c=>`
         <div class="card">
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-semibold">${esc(c.name)}</h3>
@@ -344,34 +502,52 @@
           <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             ${c.email ? `<p><i class="fa-solid fa-envelope mr-2"></i>${esc(c.email)}</p>` : ''}
             ${c.phone ? `<p><i class="fa-solid fa-phone mr-2"></i>${esc(c.phone)}</p>` : ''}
+            ${c.notes ? `<p><i class="fa-regular fa-note-sticky mr-2"></i>${esc(c.notes)}</p>` : ''}
           </div>
           <div class="flex justify-between items-center mt-2">
             <span class="text-xs text-gray-500">${esc(c.createdAt||'')}</span>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <button class="btn btn-blue" onclick="showContactForm(${c.id})">Edit</button>
               <button class="btn btn-red" onclick="deleteContact(${c.id})">Delete</button>
+              ${c.phone ? `<a class="btn btn-ghost" href="tel:${stripPhone(c.phone)}">Call</a>` : ''}
+              ${c.email ? `<a class="btn btn-ghost" href="mailto:${encode(c.email)}?subject=${encode('Hello ' + (c.name||''))}">Email</a>` : ''}
+              ${c.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(c.phone, 'Hi ' + (c.name||''))}">WhatsApp</a>` : ''}
             </div>
           </div>
         </div>
       `).join('');
     }
 
-    // Counts + toast
-    function updateCounts(){ propertyCount.textContent=properties.length; contactCount.textContent=contacts.length; }
+    function renderAll(){
+      // Counts
+      document.getElementById('propertyCount').textContent = properties.length;
+      document.getElementById('contactCount').textContent  = contacts.length;
+
+      // Dashboard lists (recent)
+      const pDash = sortProps(filterProps(properties)).slice(0, 10);
+      const cDash = sortContacts(filterContacts(contacts)).slice(0, 10);
+      renderPropertiesTo('propertiesList', pDash);
+      renderContactsTo('contactsList', cDash);
+
+      // Only tabs
+      renderPropertiesTo('propertiesListOnly', sortProps(filterProps(properties)));
+      renderContactsTo('contactsListOnly', sortContacts(filterContacts(contacts)));
+    }
+
     function showNotification(message, color='bg-green-500'){
       const n=document.createElement('div'); n.className=`fixed top-4 right-4 ${color} text-white px-4 py-2 rounded-lg z-50 shadow`; n.textContent=message;
       document.body.appendChild(n); setTimeout(()=>n.remove(), 2500);
     }
 
-    // CSV export/import
+    // CSV export/import (with notes)
     function exportPropertiesCSV(){
-      const headers=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat'];
-      const rows=[headers].concat(properties.map(p=>[p.id,p.address,p.type,p.bedrooms,p.bathrooms,p.carSpaces,p.price,p.createdAt||'']));
+      const headers=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes'];
+      const rows=[headers].concat(properties.map(p=>[p.id,p.address,p.type,p.bedrooms,p.bathrooms,p.carSpaces,p.price,p.createdAt||'',p.notes||'']));
       downloadFile('properties.csv', arrayToCSV(rows));
     }
     function exportContactsCSV(){
-      const headers=['id','name','email','phone','type','createdat'];
-      const rows=[headers].concat(contacts.map(c=>[c.id,c.name,c.email||'',c.phone||'',c.type,c.createdAt||'']));
+      const headers=['id','name','email','phone','type','createdat','notes'];
+      const rows=[headers].concat(contacts.map(c=>[c.id,c.name,c.email||'',c.phone||'',c.type,c.createdAt||'',c.notes||'']));
       downloadFile('contacts.csv', arrayToCSV(rows));
     }
     function downloadFile(filename, text){
@@ -383,11 +559,11 @@
       r.onload=()=>{ try{
           const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
           const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
-          const need=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat']; const miss=need.filter(k=>idx(k)===-1);
+          const need=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat','notes']; const miss=need.filter(k=>idx(k)===-1);
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
-          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'', carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'' }));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'', carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
           const map=new Map(properties.map(p=>[p.id,p])); imported.forEach(p=>map.set(p.id,{...(map.get(p.id)||{}),...p})); properties=[...map.values()];
-          localStorage.setItem('properties', JSON.stringify(properties)); renderProperties(); updateCounts(); showNotification('Properties imported');
+          localStorage.setItem('properties', JSON.stringify(properties)); renderAll(); showNotification('Properties imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
         finally{ document.getElementById('importPropsInput').value=''; }
       }; r.readAsText(file);
@@ -397,18 +573,18 @@
       r.onload=()=>{ try{
           const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
           const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
-          const need=['id','name','email','phone','type','createdat']; const miss=need.filter(k=>idx(k)===-1);
+          const need=['id','name','email','phone','type','createdat','notes']; const miss=need.filter(k=>idx(k)===-1);
           if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
-          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'' }));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'', notes:v[idx('notes')]||'' }));
           const map=new Map(contacts.map(c=>[c.id,c])); imported.forEach(c=>map.set(c.id,{...(map.get(c.id)||{}),...c})); contacts=[...map.values()];
-          localStorage.setItem('contacts', JSON.stringify(contacts)); renderContacts(); updateCounts(); showNotification('Contacts imported');
+          localStorage.setItem('contacts', JSON.stringify(contacts)); renderAll(); showNotification('Contacts imported');
         }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
         finally{ document.getElementById('importContactsInput').value=''; }
       }; r.readAsText(file);
     }
 
     // Initial render
-    renderProperties(); renderContacts(); updateCounts();
+    renderAll();
   </script>
 
   <!-- ===== Google API loader ===== -->
@@ -485,23 +661,24 @@
           pullBtn.onclick = async () => {
             try {
               setStatus('Syncing ↓ from Sheets…');
-              const props = await readSheet('Properties!A2:H');
-              const cons  = await readSheet('Contacts!A2:F');
+              // NOTE: we extended columns to include notes
+              const props = await readSheet('Properties!A2:I'); // id,address,type,bedrooms,bathrooms,carspaces,price,createdat,notes
+              const cons  = await readSheet('Contacts!A2:G');   // id,name,email,phone,type,createdat,notes
               properties = (props || []).map(r => ({
                 id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
                 address: r[1] || '', type: r[2] || '',
                 bedrooms: r[3] || '', bathrooms: r[4] || '',
                 carSpaces: r[5] || '', price: r[6] || '',
-                createdAt: r[7] || ''
+                createdAt: r[7] || '', notes: r[8] || ''
               }));
               contacts = (cons || []).map(r => ({
                 id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
                 name: r[1] || '', email: r[2] || '', phone: r[3] || '',
-                type: r[4] || '', createdAt: r[5] || ''
+                type: r[4] || '', createdAt: r[5] || '', notes: r[6] || ''
               }));
               localStorage.setItem('properties', JSON.stringify(properties));
               localStorage.setItem('contacts', JSON.stringify(contacts));
-              renderProperties(); renderContacts(); updateCounts();
+              renderAll();
               showNotification('Pulled from Google Sheets');
               setStatus('Synced just now');
             } catch (e) {
@@ -518,13 +695,13 @@
               setStatus('Syncing ↑ to Sheets…');
               const propValues = (properties || []).map(p => [
                 p.id, p.address || '', p.type || '', p.bedrooms || '',
-                p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || ''
+                p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || '', p.notes || ''
               ]);
               const conValues = (contacts || []).map(c => [
-                c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || ''
+                c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || '', c.notes || ''
               ]);
-              await clearRange('Properties!A2:H');
-              await clearRange('Contacts!A2:F');
+              await clearRange('Properties!A2:I');
+              await clearRange('Contacts!A2:G');
               if (propValues.length) await writeSheet('Properties!A2', propValues);
               if (conValues.length)  await writeSheet('Contacts!A2',  conValues);
               showNotification('Pushed to Google Sheets');
