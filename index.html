@@ -35,6 +35,7 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <span id="syncStatus" class="hidden text-xs text-gray-500 dark:text-gray-400 mr-1"></span>
         <button id="darkToggle" class="btn btn-ghost" title="Toggle dark mode">
           <i class="fa-solid fa-moon"></i>
         </button>
@@ -206,8 +207,9 @@
     </div>
   </div>
 
+  <!-- ===== Core App Script (localStorage + CSV + UI) ===== -->
   <script>
-    // Dark mode setup
+    // Dark mode
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedDark = localStorage.getItem('crm_dark');
     if ((savedDark === '1') || (savedDark === null && prefersDark)) {
@@ -231,6 +233,8 @@
       const n = Number(String(v).replace(/[^0-9.]/g,''));
       return isNaN(n) ? '' : fmtAUD.format(n);
     };
+    const statusEl = document.getElementById('syncStatus');
+    const setStatus = (txt) => { statusEl.textContent = txt; statusEl.classList.remove('hidden'); setTimeout(()=>statusEl.classList.add('hidden'), 5000); };
 
     // CSV helpers
     function escapeCSV(val) {
@@ -239,371 +243,316 @@
       if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
       return s;
     }
-    function arrayToCSV(rows) {
-      return rows.map(r => r.map(escapeCSV).join(',')).join('\n');
-    }
-    // Simple CSV parser that handles quoted fields
+    function arrayToCSV(rows) { return rows.map(r => r.map(escapeCSV).join(',')).join('\n'); }
     function parseCSV(text) {
-      const rows = [];
-      let row = [], cur = '', inQuotes = false;
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i], next = text[i+1];
-        if (inQuotes) {
-          if (ch === '"' && next === '"') { cur += '"'; i++; }
-          else if (ch === '"') { inQuotes = false; }
-          else { cur += ch; }
-        } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { row.push(cur); cur = ''; }
-          else if (ch === '\n' || ch === '\r') {
-            if (ch === '\r' && next === '\n') i++;
-            row.push(cur); rows.push(row); row = []; cur = '';
-          } else { cur += ch; }
-        }
+      const rows = []; let row = [], cur = '', inQ = false;
+      for (let i=0;i<text.length;i++){ const ch=text[i], nx=text[i+1];
+        if(inQ){ if(ch==='"'&&nx==='"'){cur+='"';i++;} else if(ch==='"'){inQ=false;} else {cur+=ch;} }
+        else { if(ch==='"'){inQ=true;} else if(ch===','){row.push(cur);cur='';}
+               else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&nx==='\n') i++; row.push(cur); rows.push(row); row=[]; cur='';}
+               else {cur+=ch;} }
       }
-      if (cur.length || row.length) { row.push(cur); rows.push(row); }
+      if(cur.length||row.length){ row.push(cur); rows.push(row); }
       return rows;
     }
 
     // Modals
-    function showAddModal() {
-      const m = document.getElementById('addModal');
-      m.classList.remove('hidden'); m.classList.add('flex');
-    }
-    function hideAddModal() {
-      const m = document.getElementById('addModal');
-      m.classList.add('hidden'); m.classList.remove('flex');
-    }
+    function showAddModal(){ const m=document.getElementById('addModal'); m.classList.remove('hidden'); m.classList.add('flex'); }
+    function hideAddModal(){ const m=document.getElementById('addModal'); m.classList.add('hidden'); m.classList.remove('flex'); }
 
-    function showPropertyForm(id = null) {
-      hideAddModal();
-      editingPropertyId = id;
-      const modal = document.getElementById('propertyModal');
-      modal.classList.remove('hidden'); modal.classList.add('flex');
-
-      const btn = modal.querySelector('button[type="submit"]');
-      const title = modal.querySelector('h3');
-
-      if (id) {
-        const p = properties.find(x => x.id === id);
-        document.getElementById('propAddress').value = p.address;
-        document.getElementById('propType').value    = p.type;
-        document.getElementById('propBeds').value    = p.bedrooms;
-        document.getElementById('propBaths').value   = p.bathrooms;
-        document.getElementById('propCars').value    = p.carSpaces;
-        document.getElementById('propPrice').value   = p.price;
-        btn.textContent = 'Save changes';
-        title.textContent = 'Edit Property';
-      } else {
-        document.getElementById('propAddress').value = '';
-        document.getElementById('propType').value    = '';
-        document.getElementById('propBeds').value    = '';
-        document.getElementById('propBaths').value   = '';
-        document.getElementById('propCars').value    = '';
-        document.getElementById('propPrice').value   = '';
-        btn.textContent = 'Add Property';
-        title.textContent = 'Add Property';
-      }
+    function showPropertyForm(id=null){
+      hideAddModal(); editingPropertyId=id;
+      const modal=document.getElementById('propertyModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
+      const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
+      if(id){ const p=properties.find(x=>x.id===id);
+        propAddress.value=p.address; propType.value=p.type; propBeds.value=p.bedrooms; propBaths.value=p.bathrooms; propCars.value=p.carSpaces; propPrice.value=p.price;
+        btn.textContent='Save changes'; title.textContent='Edit Property';
+      } else { propAddress.value=''; propType.value=''; propBeds.value=''; propBaths.value=''; propCars.value=''; propPrice.value='';
+        btn.textContent='Add Property'; title.textContent='Add Property'; }
     }
-    function hidePropertyForm() {
-      const modal = document.getElementById('propertyModal');
-      modal.classList.add('hidden'); modal.classList.remove('flex');
-      editingPropertyId = null;
-    }
+    function hidePropertyForm(){ const m=document.getElementById('propertyModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingPropertyId=null; }
 
-    function showContactForm(id = null) {
-      hideAddModal();
-      editingContactId = id;
-      const modal = document.getElementById('contactModal');
-      modal.classList.remove('hidden'); modal.classList.add('flex');
-
-      const btn = modal.querySelector('button[type="submit"]');
-      const title = modal.querySelector('h3');
-
-      if (id) {
-        const c = contacts.find(x => x.id === id);
-        document.getElementById('contactName').value  = c.name  || '';
-        document.getElementById('contactEmail').value = c.email || '';
-        document.getElementById('contactPhone').value = c.phone || '';
-        document.getElementById('contactType').value  = c.type  || '';
-        btn.textContent = 'Save changes';
-        title.textContent = 'Edit Contact';
-      } else {
-        document.getElementById('contactName').value  = '';
-        document.getElementById('contactEmail').value = '';
-        document.getElementById('contactPhone').value = '';
-        document.getElementById('contactType').value  = '';
-        btn.textContent = 'Add Contact';
-        title.textContent = 'Add Contact';
-      }
+    function showContactForm(id=null){
+      hideAddModal(); editingContactId=id;
+      const modal=document.getElementById('contactModal'); modal.classList.remove('hidden'); modal.classList.add('flex');
+      const btn=modal.querySelector('button[type="submit"]'); const title=modal.querySelector('h3');
+      if(id){ const c=contacts.find(x=>x.id===id);
+        contactName.value=c.name||''; contactEmail.value=c.email||''; contactPhone.value=c.phone||''; contactType.value=c.type||'';
+        btn.textContent='Save changes'; title.textContent='Edit Contact';
+      } else { contactName.value=''; contactEmail.value=''; contactPhone.value=''; contactType.value='';
+        btn.textContent='Add Contact'; title.textContent='Add Contact'; }
     }
-    function hideContactForm() {
-      const modal = document.getElementById('contactModal');
-      modal.classList.add('hidden'); modal.classList.remove('flex');
-      editingContactId = null;
-    }
+    function hideContactForm(){ const m=document.getElementById('contactModal'); m.classList.add('hidden'); m.classList.remove('flex'); editingContactId=null; }
 
     // Submit handlers
-    function submitProperty(e) {
+    function submitProperty(e){
       e.preventDefault();
-      const payload = {
-        address: document.getElementById('propAddress').value,
-        type: document.getElementById('propType').value,
-        bedrooms: document.getElementById('propBeds').value,
-        bathrooms: document.getElementById('propBaths').value,
-        carSpaces: document.getElementById('propCars').value,
-        price: document.getElementById('propPrice').value
-      };
-
-      if (editingPropertyId) {
-        properties = properties.map(p => p.id === editingPropertyId ? { ...p, ...payload } : p);
-        showNotification('Property updated');
-      } else {
-        properties.push({ id: Date.now(), ...payload, createdAt: new Date().toLocaleDateString() });
-        showNotification('Property added');
-      }
+      const payload={ address:propAddress.value, type:propType.value, bedrooms:propBeds.value, bathrooms:propBaths.value, carSpaces:propCars.value, price:propPrice.value };
+      if(editingPropertyId){ properties=properties.map(p=>p.id===editingPropertyId?{...p,...payload}:p); showNotification('Property updated'); }
+      else { properties.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Property added'); }
       localStorage.setItem('properties', JSON.stringify(properties));
-      renderProperties(); updateCounts();
-      hidePropertyForm(); e.target.reset(); editingPropertyId = null;
+      renderProperties(); updateCounts(); hidePropertyForm(); e.target.reset(); editingPropertyId=null;
     }
-
-    function submitContact(e) {
+    function submitContact(e){
       e.preventDefault();
-      const payload = {
-        name: document.getElementById('contactName').value,
-        email: document.getElementById('contactEmail').value,
-        phone: document.getElementById('contactPhone').value,
-        type: document.getElementById('contactType').value
-      };
-
-      if (editingContactId) {
-        contacts = contacts.map(c => c.id === editingContactId ? { ...c, ...payload } : c);
-        showNotification('Contact updated');
-      } else {
-        contacts.push({ id: Date.now(), ...payload, createdAt: new Date().toLocaleDateString() });
-        showNotification('Contact added');
-      }
+      const payload={ name:contactName.value, email:contactEmail.value, phone:contactPhone.value, type:contactType.value };
+      if(editingContactId){ contacts=contacts.map(c=>c.id===editingContactId?{...c,...payload}:c); showNotification('Contact updated'); }
+      else { contacts.push({ id:Date.now(), ...payload, createdAt:new Date().toLocaleDateString() }); showNotification('Contact added'); }
       localStorage.setItem('contacts', JSON.stringify(contacts));
-      renderContacts(); updateCounts();
-      hideContactForm(); e.target.reset(); editingContactId = null;
+      renderContacts(); updateCounts(); hideContactForm(); e.target.reset(); editingContactId=null;
     }
 
     // Delete
-    function deleteProperty(id) {
-      properties = properties.filter(p => p.id !== id);
-      localStorage.setItem('properties', JSON.stringify(properties));
-      renderProperties(); updateCounts();
-      showNotification('Property deleted');
-    }
-    function deleteContact(id) {
-      contacts = contacts.filter(c => c.id !== id);
-      localStorage.setItem('contacts', JSON.stringify(contacts));
-      renderContacts(); updateCounts();
-      showNotification('Contact deleted');
-    }
+    function deleteProperty(id){ properties=properties.filter(p=>p.id!==id); localStorage.setItem('properties', JSON.stringify(properties)); renderProperties(); updateCounts(); showNotification('Property deleted'); }
+    function deleteContact(id){ contacts=contacts.filter(c=>c.id!==id); localStorage.setItem('contacts', JSON.stringify(contacts)); renderContacts(); updateCounts(); showNotification('Contact deleted'); }
 
     // Renderers
-    function renderProperties() {
-      const container = document.getElementById('propertiesList');
-      if (!properties.length) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>';
-        return;
-      }
-      const items = properties.slice(-50).reverse().map(property => {
-        return `
-          <div class="card">
-            <div class="flex justify-between items-start mb-2">
-              <h3 class="font-semibold">${esc(property.address)}</h3>
-              <span class="text-xs bg-primary text-white px-2 py-1 rounded">${esc(property.type)}</span>
-            </div>
-            <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-              <span><i class="fa-solid fa-bed mr-1"></i>${esc(property.bedrooms)}</span>
-              <span><i class="fa-solid fa-bath mr-1"></i>${esc(property.bathrooms)}</span>
-              <span><i class="fa-solid fa-car mr-1"></i>${esc(property.carSpaces)}</span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-primary">${toMoney(property.price) || esc(property.price)}</span>
-              <span class="text-xs text-gray-500">${esc(property.createdAt || '')}</span>
-            </div>
-            <div class="flex gap-2 mt-3">
-              <button class="btn btn-blue" onclick="showPropertyForm(${property.id})">
-                Edit
-              </button>
-              <button class="btn btn-red" onclick="deleteProperty(${property.id})">
-                Delete
-              </button>
+    function renderProperties(){
+      const container=document.getElementById('propertiesList');
+      if(!properties.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>'; return; }
+      container.innerHTML = properties.slice(-50).reverse().map(p=>`
+        <div class="card">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-semibold">${esc(p.address)}</h3>
+            <span class="text-xs bg-primary text-white px-2 py-1 rounded">${esc(p.type)}</span>
+          </div>
+          <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <span><i class="fa-solid fa-bed mr-1"></i>${esc(p.bedrooms)}</span>
+            <span><i class="fa-solid fa-bath mr-1"></i>${esc(p.bathrooms)}</span>
+            <span><i class="fa-solid fa-car mr-1"></i>${esc(p.carSpaces)}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-primary">${toMoney(p.price) || esc(p.price)}</span>
+            <span class="text-xs text-gray-500">${esc(p.createdAt||'')}</span>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button class="btn btn-blue" onclick="showPropertyForm(${p.id})">Edit</button>
+            <button class="btn btn-red" onclick="deleteProperty(${p.id})">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    function renderContacts(){
+      const container=document.getElementById('contactsList');
+      if(!contacts.length){ container.innerHTML='<p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>'; return; }
+      container.innerHTML = contacts.slice(-50).reverse().map(c=>`
+        <div class="card">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-semibold">${esc(c.name)}</h3>
+            <span class="text-xs bg-blue-500 text-white px-2 py-1 rounded">${esc(c.type)}</span>
+          </div>
+          <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+            ${c.email ? `<p><i class="fa-solid fa-envelope mr-2"></i>${esc(c.email)}</p>` : ''}
+            ${c.phone ? `<p><i class="fa-solid fa-phone mr-2"></i>${esc(c.phone)}</p>` : ''}
+          </div>
+          <div class="flex justify-between items-center mt-2">
+            <span class="text-xs text-gray-500">${esc(c.createdAt||'')}</span>
+            <div class="flex gap-2">
+              <button class="btn btn-blue" onclick="showContactForm(${c.id})">Edit</button>
+              <button class="btn btn-red" onclick="deleteContact(${c.id})">Delete</button>
             </div>
           </div>
-        `;
-      }).join('');
-      container.innerHTML = items;
+        </div>
+      `).join('');
     }
 
-    function renderContacts() {
-      const container = document.getElementById('contactsList');
-      if (!contacts.length) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>';
-        return;
-      }
-      const items = contacts.slice(-50).reverse().map(contact => {
-        return `
-          <div class="card">
-            <div class="flex justify-between items-start mb-2">
-              <h3 class="font-semibold">${esc(contact.name)}</h3>
-              <span class="text-xs bg-blue-500 text-white px-2 py-1 rounded">${esc(contact.type)}</span>
-            </div>
-            <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-              ${contact.email ? `<p><i class="fa-solid fa-envelope mr-2"></i>${esc(contact.email)}</p>` : ''}
-              ${contact.phone ? `<p><i class="fa-solid fa-phone mr-2"></i>${esc(contact.phone)}</p>` : ''}
-            </div>
-            <div class="flex justify-between items-center mt-2">
-              <span class="text-xs text-gray-500">${esc(contact.createdAt || '')}</span>
-              <div class="flex gap-2">
-                <button class="btn btn-blue" onclick="showContactForm(${contact.id})">
-                  Edit
-                </button>
-                <button class="btn btn-red" onclick="deleteContact(${contact.id})">
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-      container.innerHTML = items;
+    // Counts + toast
+    function updateCounts(){ propertyCount.textContent=properties.length; contactCount.textContent=contacts.length; }
+    function showNotification(message, color='bg-green-500'){
+      const n=document.createElement('div'); n.className=`fixed top-4 right-4 ${color} text-white px-4 py-2 rounded-lg z-50 shadow`; n.textContent=message;
+      document.body.appendChild(n); setTimeout(()=>n.remove(), 2500);
     }
 
-    // Counts and toast
-    function updateCounts() {
-      document.getElementById('propertyCount').textContent = properties.length;
-      document.getElementById('contactCount').textContent  = contacts.length;
+    // CSV export/import
+    function exportPropertiesCSV(){
+      const headers=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat'];
+      const rows=[headers].concat(properties.map(p=>[p.id,p.address,p.type,p.bedrooms,p.bathrooms,p.carSpaces,p.price,p.createdAt||'']));
+      downloadFile('properties.csv', arrayToCSV(rows));
     }
-    function showNotification(message, color='bg-green-500') {
-      const n = document.createElement('div');
-      n.className = `fixed top-4 right-4 ${color} text-white px-4 py-2 rounded-lg z-50 shadow`;
-      n.textContent = message;
-      document.body.appendChild(n);
-      setTimeout(() => n.remove(), 2500);
+    function exportContactsCSV(){
+      const headers=['id','name','email','phone','type','createdat'];
+      const rows=[headers].concat(contacts.map(c=>[c.id,c.name,c.email||'',c.phone||'',c.type,c.createdAt||'']));
+      downloadFile('contacts.csv', arrayToCSV(rows));
     }
-
-    // Export CSV
-    function exportPropertiesCSV() {
-      const headers = ['id','address','type','bedrooms','bathrooms','carSpaces','price','createdAt'];
-      const rows = [headers].concat(
-        properties.map(p => [p.id, p.address, p.type, p.bedrooms, p.bathrooms, p.carSpaces, p.price, p.createdAt || ''])
-      );
-      const csv = arrayToCSV(rows);
-      downloadFile('properties.csv', csv);
+    function downloadFile(filename, text){
+      const blob=new Blob([text], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
     }
-    function exportContactsCSV() {
-      const headers = ['id','name','email','phone','type','createdAt'];
-      const rows = [headers].concat(
-        contacts.map(c => [c.id, c.name, c.email || '', c.phone || '', c.type, c.createdAt || ''])
-      );
-      const csv = arrayToCSV(rows);
-      downloadFile('contacts.csv', csv);
+    function handleImportProps(file){
+      if(!file) return; const r=new FileReader();
+      r.onload=()=>{ try{
+          const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
+          const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
+          const need=['id','address','type','bedrooms','bathrooms','carspaces','price','createdat']; const miss=need.filter(k=>idx(k)===-1);
+          if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), address:v[idx('address')]||'', type:v[idx('type')]||'', bedrooms:v[idx('bedrooms')]||'', bathrooms:v[idx('bathrooms')]||'', carSpaces:v[idx('carspaces')]||'', price:v[idx('price')]||'', createdAt:v[idx('createdat')]||'' }));
+          const map=new Map(properties.map(p=>[p.id,p])); imported.forEach(p=>map.set(p.id,{...(map.get(p.id)||{}),...p})); properties=[...map.values()];
+          localStorage.setItem('properties', JSON.stringify(properties)); renderProperties(); updateCounts(); showNotification('Properties imported');
+        }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
+        finally{ document.getElementById('importPropsInput').value=''; }
+      }; r.readAsText(file);
     }
-    function downloadFile(filename, text) {
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
-    }
-
-    // Import CSV
-    function handleImportProps(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const rows = parseCSV(reader.result.trim());
-          if (!rows.length) throw new Error('Empty CSV');
-          const header = rows.shift().map(h => h.toLowerCase());
-          const idx = (name) => header.indexOf(name);
-          const needed = ['id','address','type','bedrooms','bathrooms','carspaces','price','createdat'];
-          const missing = needed.filter(k => idx(k) === -1);
-          if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
-
-          const imported = rows.map(r => ({
-            id: Number(r[idx('id')]) || Date.now() + Math.floor(Math.random()*1000),
-            address: r[idx('address')] || '',
-            type: r[idx('type')] || '',
-            bedrooms: r[idx('bedrooms')] || '',
-            bathrooms: r[idx('bathrooms')] || '',
-            carSpaces: r[idx('carspaces')] || '',
-            price: r[idx('price')] || '',
-            createdAt: r[idx('createdat')] || ''
-          }));
-          // Merge by id (update existing, add new)
-          const map = new Map(properties.map(p => [p.id, p]));
-          imported.forEach(p => map.set(p.id, { ...(map.get(p.id) || {}), ...p }));
-          properties = Array.from(map.values());
-          localStorage.setItem('properties', JSON.stringify(properties));
-          renderProperties(); updateCounts();
-          showNotification('Properties imported');
-        } catch (e) {
-          console.error(e);
-          showNotification('Import failed. Check CSV columns.', 'bg-red-600');
-        } finally {
-          document.getElementById('importPropsInput').value = '';
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function handleImportContacts(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const rows = parseCSV(reader.result.trim());
-          if (!rows.length) throw new Error('Empty CSV');
-          const header = rows.shift().map(h => h.toLowerCase());
-          const idx = (name) => header.indexOf(name);
-          const needed = ['id','name','email','phone','type','createdat'];
-          const missing = needed.filter(k => idx(k) === -1);
-          if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
-
-          const imported = rows.map(r => ({
-            id: Number(r[idx('id')]) || Date.now() + Math.floor(Math.random()*1000),
-            name: r[idx('name')] || '',
-            email: r[idx('email')] || '',
-            phone: r[idx('phone')] || '',
-            type: r[idx('type')] || '',
-            createdAt: r[idx('createdat')] || ''
-          }));
-          const map = new Map(contacts.map(c => [c.id, c]));
-          imported.forEach(c => map.set(c.id, { ...(map.get(c.id) || {}), ...c }));
-          contacts = Array.from(map.values());
-          localStorage.setItem('contacts', JSON.stringify(contacts));
-          renderContacts(); updateCounts();
-          showNotification('Contacts imported');
-        } catch (e) {
-          console.error(e);
-          showNotification('Import failed. Check CSV columns.', 'bg-red-600');
-        } finally {
-          document.getElementById('importContactsInput').value = '';
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    // Modals show/hide
-    function showAddModal() {
-      const m = document.getElementById('addModal');
-      m.classList.remove('hidden'); m.classList.add('flex');
-    }
-    function hideAddModal() {
-      const m = document.getElementById('addModal');
-      m.classList.add('hidden'); m.classList.remove('flex');
+    function handleImportContacts(file){
+      if(!file) return; const r=new FileReader();
+      r.onload=()=>{ try{
+          const rows=parseCSV(r.result.trim()); if(!rows.length) throw new Error('Empty CSV');
+          const header=rows.shift().map(h=>h.toLowerCase()); const idx=n=>header.indexOf(n);
+          const need=['id','name','email','phone','type','createdat']; const miss=need.filter(k=>idx(k)===-1);
+          if(miss.length) throw new Error('Missing columns: '+miss.join(', '));
+          const imported=rows.map(v=>({ id:Number(v[idx('id')])||Date.now()+Math.floor(Math.random()*1000), name:v[idx('name')]||'', email:v[idx('email')]||'', phone:v[idx('phone')]||'', type:v[idx('type')]||'', createdAt:v[idx('createdat')]||'' }));
+          const map=new Map(contacts.map(c=>[c.id,c])); imported.forEach(c=>map.set(c.id,{...(map.get(c.id)||{}),...c})); contacts=[...map.values()];
+          localStorage.setItem('contacts', JSON.stringify(contacts)); renderContacts(); updateCounts(); showNotification('Contacts imported');
+        }catch(e){ console.error(e); showNotification('Import failed. Check CSV columns.','bg-red-600'); }
+        finally{ document.getElementById('importContactsInput').value=''; }
+      }; r.readAsText(file);
     }
 
     // Initial render
-    renderProperties();
-    renderContacts();
-    updateCounts();
+    renderProperties(); renderContacts(); updateCounts();
+  </script>
+
+  <!-- ===== Google API loader ===== -->
+  <script src="https://apis.google.com/js/api.js"></script>
+
+  <!-- ===== Google Sheets Sync (OAuth + read/write) ===== -->
+  <script>
+    /* === CONFIG (yours) === */
+    const GAPI_API_KEY   = 'AIzaSyCX7yThc3WManWS2EJcc0zkKa6o01T1dec';
+    const GAPI_CLIENT_ID = '836099334681-tmb272ie85u0qdb080nb97bvcgtvuvvid.apps.googleusercontent.com';
+    const SHEET_ID       = '1Oumn0bFkkHvRrETlNEi4u4eM63DPfkkRuwE05gpWdFM';
+    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+    const DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
+
+    // Add Sign in / Sync buttons to header
+    (function addSyncButtons(){
+      const hdr = document.querySelector('header .flex.items-center.justify-between');
+      if (!hdr) return;
+      const right = hdr.lastElementChild;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'flex items-center gap-2';
+
+      const signBtn = document.createElement('button');
+      signBtn.id = 'gSignBtn';
+      signBtn.className = 'btn btn-ghost';
+      signBtn.textContent = 'Sign in';
+      wrap.appendChild(signBtn);
+
+      const pullBtn = document.createElement('button');
+      pullBtn.id = 'pullBtn';
+      pullBtn.className = 'btn btn-ghost';
+      pullBtn.textContent = 'Sync ↓';
+      pullBtn.disabled = true;
+      wrap.appendChild(pullBtn);
+
+      const pushBtn = document.createElement('button');
+      pushBtn.id = 'pushBtn';
+      pushBtn.className = 'btn btn-ghost';
+      pushBtn.textContent = 'Sync ↑';
+      pushBtn.disabled = true;
+      wrap.appendChild(pushBtn);
+
+      right.prepend(wrap);
+    })();
+
+    // Google API init
+    function gapiInit() {
+      gapi.load('client:auth2', async () => {
+        await gapi.client.init({
+          apiKey: GAPI_API_KEY,
+          clientId: GAPI_CLIENT_ID,
+          discoveryDocs: DISCOVERY_DOCS,
+          scope: SCOPES
+        });
+
+        const auth    = gapi.auth2.getAuthInstance();
+        const signBtn = document.getElementById('gSignBtn');
+        const pullBtn = document.getElementById('pullBtn');
+        const pushBtn = document.getElementById('pushBtn');
+
+        function setAuthUI(signedIn){
+          if (signBtn) signBtn.textContent = signedIn ? 'Sign out' : 'Sign in';
+          if (pullBtn) pullBtn.disabled = !signedIn;
+          if (pushBtn) pushBtn.disabled = !signedIn;
+        }
+
+        auth.isSignedIn.listen(setAuthUI);
+        setAuthUI(auth.isSignedIn.get());
+
+        if (signBtn) signBtn.onclick = () => auth.isSignedIn.get() ? auth.signOut() : auth.signIn();
+
+        if (pullBtn) {
+          pullBtn.onclick = async () => {
+            try {
+              setStatus('Syncing ↓ from Sheets…');
+              const props = await readSheet('Properties!A2:H');
+              const cons  = await readSheet('Contacts!A2:F');
+              properties = (props || []).map(r => ({
+                id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
+                address: r[1] || '', type: r[2] || '',
+                bedrooms: r[3] || '', bathrooms: r[4] || '',
+                carSpaces: r[5] || '', price: r[6] || '',
+                createdAt: r[7] || ''
+              }));
+              contacts = (cons || []).map(r => ({
+                id: Number(r[0]) || Date.now() + Math.floor(Math.random()*1000),
+                name: r[1] || '', email: r[2] || '', phone: r[3] || '',
+                type: r[4] || '', createdAt: r[5] || ''
+              }));
+              localStorage.setItem('properties', JSON.stringify(properties));
+              localStorage.setItem('contacts', JSON.stringify(contacts));
+              renderProperties(); renderContacts(); updateCounts();
+              showNotification('Pulled from Google Sheets');
+              setStatus('Synced just now');
+            } catch (e) {
+              console.error(e);
+              showNotification('Pull failed (Sheets)', 'bg-red-600');
+              setStatus('Sync error');
+            }
+          };
+        }
+
+        if (pushBtn) {
+          pushBtn.onclick = async () => {
+            try {
+              setStatus('Syncing ↑ to Sheets…');
+              const propValues = (properties || []).map(p => [
+                p.id, p.address || '', p.type || '', p.bedrooms || '',
+                p.bathrooms || '', p.carSpaces || '', p.price || '', p.createdAt || ''
+              ]);
+              const conValues = (contacts || []).map(c => [
+                c.id, c.name || '', c.email || '', c.phone || '', c.type || '', c.createdAt || ''
+              ]);
+              await clearRange('Properties!A2:H');
+              await clearRange('Contacts!A2:F');
+              if (propValues.length) await writeSheet('Properties!A2', propValues);
+              if (conValues.length)  await writeSheet('Contacts!A2',  conValues);
+              showNotification('Pushed to Google Sheets');
+              setStatus('Synced just now');
+            } catch (e) {
+              console.error(e);
+              showNotification('Push failed (Sheets)', 'bg-red-600');
+              setStatus('Sync error');
+            }
+          };
+        }
+      });
+    }
+    gapiInit();
+
+    // Sheets helpers
+    async function readSheet(rangeA1){
+      const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: rangeA1 });
+      return res.result.values || [];
+    }
+    async function writeSheet(rangeA1, values){
+      return gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: rangeA1, valueInputOption: 'RAW', resource: { values }
+      });
+    }
+    async function clearRange(rangeA1){
+      return gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: rangeA1 });
+    }
   </script>
 </body>
 </html>
