@@ -15,6 +15,15 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 
   <meta name="theme-color" content="#5D5CDE">
+  <style>
+    .btn { @apply px-3 py-2 rounded-lg text-sm; }
+    .btn-primary { @apply bg-primary text-white; }
+    .btn-blue { @apply bg-blue-600 text-white; }
+    .btn-red { @apply bg-red-600 text-white; }
+    .btn-ghost { @apply bg-gray-100 dark:bg-gray-700; }
+    .card { @apply bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm; }
+    .muted { @apply text-xs text-gray-600 dark:text-gray-400; }
+  </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
   <!-- Header -->
@@ -26,10 +35,10 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <button id="darkToggle" class="rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700">
+        <button id="darkToggle" class="btn btn-ghost" title="Toggle dark mode">
           <i class="fa-solid fa-moon"></i>
         </button>
-        <button onclick="showAddModal()" class="bg-primary text-white px-3 py-2 rounded-lg text-sm">
+        <button onclick="showAddModal()" class="btn btn-primary">
           <i class="fa-solid fa-plus mr-1"></i>Add
         </button>
       </div>
@@ -37,24 +46,35 @@
   </header>
 
   <!-- Main -->
-  <main class="p-4 pb-24">
+  <main class="p-4 pb-28">
     <!-- Counters -->
     <div class="grid grid-cols-2 gap-3 mb-6">
-      <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm text-center">
+      <div class="card text-center">
         <i class="fa-solid fa-building text-primary text-2xl mb-2"></i>
         <p class="text-2xl font-bold text-primary" id="propertyCount">0</p>
-        <p class="text-xs text-gray-600 dark:text-gray-400">Properties</p>
+        <p class="muted">Properties</p>
       </div>
-      <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm text-center">
+      <div class="card text-center">
         <i class="fa-solid fa-users text-blue-500 text-2xl mb-2"></i>
         <p class="text-2xl font-bold text-blue-500" id="contactCount">0</p>
-        <p class="text-xs text-gray-600 dark:text-gray-400">Contacts</p>
+        <p class="muted">Contacts</p>
       </div>
     </div>
 
     <!-- Properties -->
     <section class="mb-6">
-      <h2 class="text-lg font-bold mb-3">Recent Properties</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold">Recent Properties</h2>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="exportPropertiesCSV()" title="Export properties CSV">
+            <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
+          </button>
+          <button class="btn btn-ghost" onclick="document.getElementById('importPropsInput').click()" title="Import properties CSV">
+            <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
+          </button>
+          <input id="importPropsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportProps(this.files[0])">
+        </div>
+      </div>
       <div id="propertiesList" class="space-y-3">
         <p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>
       </div>
@@ -62,7 +82,18 @@
 
     <!-- Contacts -->
     <section class="mb-6">
-      <h2 class="text-lg font-bold mb-3">Recent Contacts</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold">Recent Contacts</h2>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost" onclick="exportContactsCSV()" title="Export contacts CSV">
+            <i class="fa-solid fa-file-arrow-down mr-2"></i>Export CSV
+          </button>
+          <button class="btn btn-ghost" onclick="document.getElementById('importContactsInput').click()" title="Import contacts CSV">
+            <i class="fa-solid fa-file-arrow-up mr-2"></i>Import CSV
+          </button>
+          <input id="importContactsInput" type="file" accept=".csv,text/csv" class="hidden" onchange="handleImportContacts(this.files[0])">
+        </div>
+      </div>
       <div id="contactsList" class="space-y-3">
         <p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>
       </div>
@@ -93,7 +124,7 @@
 
   <!-- Add chooser -->
   <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+    <div class="card w-full max-w-md mx-4">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-bold">Add New</h3>
         <button onclick="hideAddModal()" class="text-gray-500">
@@ -101,10 +132,10 @@
         </button>
       </div>
       <div class="space-y-3">
-        <button onclick="showPropertyForm()" class="w-full bg-primary text-white py-3 rounded-lg">
+        <button onclick="showPropertyForm()" class="w-full btn btn-primary">
           <i class="fa-solid fa-building mr-2"></i>Add Property
         </button>
-        <button onclick="showContactForm()" class="w-full bg-blue-500 text-white py-3 rounded-lg">
+        <button onclick="showContactForm()" class="w-full btn btn-blue">
           <i class="fa-solid fa-user mr-2"></i>Add Contact
         </button>
       </div>
@@ -113,7 +144,7 @@
 
   <!-- Property form -->
   <div id="propertyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
+    <div class="card w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-bold">Add Property</h3>
         <button onclick="hidePropertyForm()" class="text-gray-500">
@@ -141,14 +172,14 @@
         </div>
         <input type="text" id="propPrice" inputmode="decimal" placeholder="Price e.g. 750000" required
                class="w-full px-4 py-3 text-base border rounded-lg dark:bg-gray-700 dark:border-gray-600">
-        <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg">Add Property</button>
+        <button type="submit" class="w-full btn btn-primary">Add Property</button>
       </form>
     </div>
   </div>
 
   <!-- Contact form -->
   <div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+    <div class="card w-full max-w-md mx-4">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-bold">Add Contact</h3>
         <button onclick="hideContactForm()" class="text-gray-500">
@@ -170,13 +201,13 @@
           <option value="tenant">Tenant</option>
           <option value="investor">Investor</option>
         </select>
-        <button type="submit" class="w-full bg-blue-500 text-white py-3 rounded-lg">Add Contact</button>
+        <button type="submit" class="w-full btn btn-blue">Add Contact</button>
       </form>
     </div>
   </div>
 
   <script>
-    // Dark mode set up
+    // Dark mode setup
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedDark = localStorage.getItem('crm_dark');
     if ((savedDark === '1') || (savedDark === null && prefersDark)) {
@@ -200,6 +231,39 @@
       const n = Number(String(v).replace(/[^0-9.]/g,''));
       return isNaN(n) ? '' : fmtAUD.format(n);
     };
+
+    // CSV helpers
+    function escapeCSV(val) {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    function arrayToCSV(rows) {
+      return rows.map(r => r.map(escapeCSV).join(',')).join('\n');
+    }
+    // Simple CSV parser that handles quoted fields
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], cur = '', inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i], next = text[i+1];
+        if (inQuotes) {
+          if (ch === '"' && next === '"') { cur += '"'; i++; }
+          else if (ch === '"') { inQuotes = false; }
+          else { cur += ch; }
+        } else {
+          if (ch === '"') { inQuotes = true; }
+          else if (ch === ',') { row.push(cur); cur = ''; }
+          else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && next === '\n') i++;
+            row.push(cur); rows.push(row); row = []; cur = '';
+          } else { cur += ch; }
+        }
+      }
+      if (cur.length || row.length) { row.push(cur); rows.push(row); }
+      return rows;
+    }
 
     // Modals
     function showAddModal() {
@@ -241,7 +305,6 @@
         title.textContent = 'Add Property';
       }
     }
-
     function hidePropertyForm() {
       const modal = document.getElementById('propertyModal');
       modal.classList.add('hidden'); modal.classList.remove('flex');
@@ -274,7 +337,6 @@
         title.textContent = 'Add Contact';
       }
     }
-
     function hideContactForm() {
       const modal = document.getElementById('contactModal');
       modal.classList.add('hidden'); modal.classList.remove('flex');
@@ -347,9 +409,9 @@
         container.innerHTML = '<p class="text-gray-500 text-center py-8">No properties yet. Tap + to add one.</p>';
         return;
       }
-      const items = properties.slice(-10).reverse().map(property => {
+      const items = properties.slice(-50).reverse().map(property => {
         return `
-          <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          <div class="card">
             <div class="flex justify-between items-start mb-2">
               <h3 class="font-semibold">${esc(property.address)}</h3>
               <span class="text-xs bg-primary text-white px-2 py-1 rounded">${esc(property.type)}</span>
@@ -364,10 +426,10 @@
               <span class="text-xs text-gray-500">${esc(property.createdAt || '')}</span>
             </div>
             <div class="flex gap-2 mt-3">
-              <button class="px-3 py-1 text-xs rounded bg-blue-600 text-white" onclick="showPropertyForm(${property.id})">
+              <button class="btn btn-blue" onclick="showPropertyForm(${property.id})">
                 Edit
               </button>
-              <button class="px-3 py-1 text-xs rounded bg-red-600 text-white" onclick="deleteProperty(${property.id})">
+              <button class="btn btn-red" onclick="deleteProperty(${property.id})">
                 Delete
               </button>
             </div>
@@ -383,9 +445,9 @@
         container.innerHTML = '<p class="text-gray-500 text-center py-8">No contacts yet. Tap + to add one.</p>';
         return;
       }
-      const items = contacts.slice(-10).reverse().map(contact => {
+      const items = contacts.slice(-50).reverse().map(contact => {
         return `
-          <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          <div class="card">
             <div class="flex justify-between items-start mb-2">
               <h3 class="font-semibold">${esc(contact.name)}</h3>
               <span class="text-xs bg-blue-500 text-white px-2 py-1 rounded">${esc(contact.type)}</span>
@@ -397,10 +459,10 @@
             <div class="flex justify-between items-center mt-2">
               <span class="text-xs text-gray-500">${esc(contact.createdAt || '')}</span>
               <div class="flex gap-2">
-                <button class="px-3 py-1 text-xs rounded bg-blue-600 text-white" onclick="showContactForm(${contact.id})">
+                <button class="btn btn-blue" onclick="showContactForm(${contact.id})">
                   Edit
                 </button>
-                <button class="px-3 py-1 text-xs rounded bg-red-600 text-white" onclick="deleteContact(${contact.id})">
+                <button class="btn btn-red" onclick="deleteContact(${contact.id})">
                   Delete
                 </button>
               </div>
@@ -416,12 +478,126 @@
       document.getElementById('propertyCount').textContent = properties.length;
       document.getElementById('contactCount').textContent  = contacts.length;
     }
-    function showNotification(message) {
+    function showNotification(message, color='bg-green-500') {
       const n = document.createElement('div');
-      n.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 shadow';
+      n.className = `fixed top-4 right-4 ${color} text-white px-4 py-2 rounded-lg z-50 shadow`;
       n.textContent = message;
       document.body.appendChild(n);
       setTimeout(() => n.remove(), 2500);
+    }
+
+    // Export CSV
+    function exportPropertiesCSV() {
+      const headers = ['id','address','type','bedrooms','bathrooms','carSpaces','price','createdAt'];
+      const rows = [headers].concat(
+        properties.map(p => [p.id, p.address, p.type, p.bedrooms, p.bathrooms, p.carSpaces, p.price, p.createdAt || ''])
+      );
+      const csv = arrayToCSV(rows);
+      downloadFile('properties.csv', csv);
+    }
+    function exportContactsCSV() {
+      const headers = ['id','name','email','phone','type','createdAt'];
+      const rows = [headers].concat(
+        contacts.map(c => [c.id, c.name, c.email || '', c.phone || '', c.type, c.createdAt || ''])
+      );
+      const csv = arrayToCSV(rows);
+      downloadFile('contacts.csv', csv);
+    }
+    function downloadFile(filename, text) {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+    }
+
+    // Import CSV
+    function handleImportProps(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = parseCSV(reader.result.trim());
+          if (!rows.length) throw new Error('Empty CSV');
+          const header = rows.shift().map(h => h.toLowerCase());
+          const idx = (name) => header.indexOf(name);
+          const needed = ['id','address','type','bedrooms','bathrooms','carspaces','price','createdat'];
+          const missing = needed.filter(k => idx(k) === -1);
+          if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
+
+          const imported = rows.map(r => ({
+            id: Number(r[idx('id')]) || Date.now() + Math.floor(Math.random()*1000),
+            address: r[idx('address')] || '',
+            type: r[idx('type')] || '',
+            bedrooms: r[idx('bedrooms')] || '',
+            bathrooms: r[idx('bathrooms')] || '',
+            carSpaces: r[idx('carspaces')] || '',
+            price: r[idx('price')] || '',
+            createdAt: r[idx('createdat')] || ''
+          }));
+          // Merge by id (update existing, add new)
+          const map = new Map(properties.map(p => [p.id, p]));
+          imported.forEach(p => map.set(p.id, { ...(map.get(p.id) || {}), ...p }));
+          properties = Array.from(map.values());
+          localStorage.setItem('properties', JSON.stringify(properties));
+          renderProperties(); updateCounts();
+          showNotification('Properties imported');
+        } catch (e) {
+          console.error(e);
+          showNotification('Import failed. Check CSV columns.', 'bg-red-600');
+        } finally {
+          document.getElementById('importPropsInput').value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function handleImportContacts(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = parseCSV(reader.result.trim());
+          if (!rows.length) throw new Error('Empty CSV');
+          const header = rows.shift().map(h => h.toLowerCase());
+          const idx = (name) => header.indexOf(name);
+          const needed = ['id','name','email','phone','type','createdat'];
+          const missing = needed.filter(k => idx(k) === -1);
+          if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
+
+          const imported = rows.map(r => ({
+            id: Number(r[idx('id')]) || Date.now() + Math.floor(Math.random()*1000),
+            name: r[idx('name')] || '',
+            email: r[idx('email')] || '',
+            phone: r[idx('phone')] || '',
+            type: r[idx('type')] || '',
+            createdAt: r[idx('createdat')] || ''
+          }));
+          const map = new Map(contacts.map(c => [c.id, c]));
+          imported.forEach(c => map.set(c.id, { ...(map.get(c.id) || {}), ...c }));
+          contacts = Array.from(map.values());
+          localStorage.setItem('contacts', JSON.stringify(contacts));
+          renderContacts(); updateCounts();
+          showNotification('Contacts imported');
+        } catch (e) {
+          console.error(e);
+          showNotification('Import failed. Check CSV columns.', 'bg-red-600');
+        } finally {
+          document.getElementById('importContactsInput').value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Modals show/hide
+    function showAddModal() {
+      const m = document.getElementById('addModal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function hideAddModal() {
+      const m = document.getElementById('addModal');
+      m.classList.add('hidden'); m.classList.remove('flex');
     }
 
     // Initial render
